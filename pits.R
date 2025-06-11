@@ -1,4 +1,5 @@
-process_pits <- function(pits_files) {
+create_pits_new <- function(pits_files) {
+  source("./lists.R")
   # Data Aggregation
   # for every file in pits_data, read it into a dataframe
   pits_data <- map(
@@ -7,25 +8,13 @@ process_pits <- function(pits_files) {
       readxl::read_xlsx(
         file,
         #col_types = "text", # set all column types to strings, changed later in script
-        na = c(
-          "",
-          "NO DATA",
-          "no data",
-          "NA",
-          "na",
-          "N/A",
-          "n/a",
-          "-9999",
-          "9999",
-          "-999",
-          "-999.00",
-          "-9999.0"
-        ) # values in Excel to set to NA #TODO: figure out consistant NA value
+        na = na_import_list
       ) |>
         dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
         dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
     }
   )
+  rm(na_import_list)
 
   #Change column names to be friendlier
   # (follow https://edirepository.org/resources/cleaning-data-and-quality-control)
@@ -143,6 +132,105 @@ process_pits <- function(pits_files) {
   # combine into one dataframe
   pits_data <- reduce(pits_data, full_join)
 
+  # return dataframe
+  pits_data
+}
+
+create_pits_old <- function(old_pits_files) {
+  # import global sorting lists
+  source("./lists.R")
+
+  # import excel data
+  pits_data <- map(
+    old_pits_files,
+    function(file) {
+      readxl::read_xlsx(
+        file,
+        na = na_import_list
+      ) |>
+        dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
+        dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
+    }
+  )
+  rm(na_import_list)
+
+  # rename columns to fit with newer format
+  rename_map <- c(
+    date = "Date",
+    time = "Time",
+    cloud_cover = "Cloud",
+    pits_tube_id = "Tube#",
+    snow_depth_centimeters = "Depth(cm)",
+    snow_depth_inches = "depth(in)",
+    tube_tare_weight_pounds = "Tare(lb)",
+    tube_and_snow_weight_pounds = "Weight(lb)",
+    snow_weight_kilograms = "SnowWeight(kg)",
+    snow_density_kilograms_meters_cubed = "SnowDensity(kg/m3)",
+    snow_water_equivalent_millimeters = "SWE(mm)", #TODO: SWE means this right?
+    scale_photo_taken = "PhotoofSnowScale(y/n)", #TODO: are these stored anywhere?
+    snowing = "Snowing(y/n)",
+    snowing_past_24_hours = "Snowlast24h(y/n)",
+    melt = "Melt(y/n)",
+    grain_size_millimeters = "Grainsize(mm)",
+    initials = "Initials",
+    notes = "Notes"
+  )
+  pits_data <- map(pits_data, function(df) {
+    for (new_col in names(rename_map)) {
+      old_col <- rename_map[[new_col]]
+      if (old_col %in% names(df)) {
+        df <- df |> rename(!!new_col := !!sym(old_col))
+      }
+    }
+    df
+  })
+  rm(rename_map)
+
+  # combine dataframes
+
+  # make columns the same datatypes so we can join together
+  pits_data <- map(
+    pits_data,
+    ~ .x |>
+      select(-contains("Layer")) |>
+      mutate(
+        # remove "<{num}mm" annotation from number
+        #TODO: revisit and determine if "<1MM" should be 1 or NA or something else
+        grain_size_millimeters = as.numeric(str_extract(
+          grain_size_millimeters,
+          "\\d*\\.?\\d+"
+        ))
+      )
+  )
+
+  # add water_year column
+  pits_data <- map(
+    pits_data,
+    function(df) {
+      all_water_year <- max(year(df$date))
+      df |> mutate(water_year = all_water_year)
+    }
+  )
+
+  # join dataframes together
+  pits_data <- reduce(pits_data, full_join)
+
+  pits_data <- pits_data |>
+    mutate(
+      # add site_name column to data
+      site_name = case_when(
+        str_detect(str_to_lower(source_file), "kingman") ~ "kingman",
+        str_detect(str_to_lower(source_file), "field") ~ "thompson field",
+        str_detect(str_to_lower(source_file), "canopy") ~ "thompson canopy",
+      ),
+    )
+
+  # return full dataframe
+  pits_data
+}
+
+
+process_pits <- function(df) {
   # remove rows where all data is missing
   orig_row_count <- nrow(pits_data)
   full_columns <- c("site_name", "water_year", "date", "source_file")

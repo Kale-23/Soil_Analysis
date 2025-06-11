@@ -1,4 +1,5 @@
 process_frost <- function(frost_files) {
+  source("./lists.R")
   # Data Aggregation
   # for every file in pits_data, read it into a dataframe
   frost_data <- map(
@@ -8,29 +9,13 @@ process_frost <- function(frost_files) {
         file,
         range = cell_cols("A:L"),
         #col_types = "text", # set all column types to strings, changed later in script
-        na = c(
-          "",
-          "NO DATA",
-          "no data",
-          "NO data",
-          "No Data",
-          "NaN",
-          "NA",
-          "na",
-          "N/A",
-          "n/a",
-          "-9999",
-          "9999",
-          "-999",
-          "999",
-          "-999.00",
-          "-9999.0"
-        ) # values in Excel to set to NA #TODO: figure out consistant NA value
+        na = na_import_list
       ) |>
         dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
         dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
     }
   )
+  rm(na_import_list)
 
   # current column names vs new names
   rename_map <- c(
@@ -148,12 +133,15 @@ process_frost <- function(frost_files) {
     "notes"
   )
   full_columns <- c("site_name", "water_year", "date", "source_file")
-  orig_row_count <- nrow(pits_data)
+  orig_row_count <- nrow(frost_data)
+  #empty_frost_data <- frost_data |>
+  #  # these columns have data even if the rest dont, ignore these when filtering
+  #  filter(if_all(all_of(filter_columns), ~ is.na(.) | . == 0))
   frost_data <- frost_data |>
     # these columns have data even if the rest dont, ignore these when filtering
     filter(!if_all(all_of(filter_columns), ~ is.na(.) | . == 0))
   print(paste("filtered out ", orig_row_count - nrow(frost_data), " columns"))
-  rm(orig_row_count, full_columns)
+  rm(orig_row_count, full_columns, filter_columns)
 
   # remove carrage returns
   frost_data <- frost_data |>
@@ -178,6 +166,37 @@ process_frost <- function(frost_files) {
       snow_depth_trace = as.factor(snow_depth_trace)
     ) |>
     mutate(
-      # recode factors (ie "no" to "n")
+      # recode factors (ie "n" to "no")
+      # no vs n etc to be consistant with pits data
+      layers_present = recode(
+        layers_present,
+        "n" = "no",
+        "N" = "no",
+        "No" = "no",
+        "y" = "yes",
+        "Y" = "yes",
+        "Yes" = "yes"
+      ),
+    ) |>
+    mutate(
+      layers_present = na_if(layers_present, "0"),
+      initials = na_if(initials, "0")
+    ) |>
+    mutate(
+      # dates
+      year = year(date),
+      month = month(date),
+      day = day(date),
+      hour = hour(time),
+      minute = minute(time)
+    ) |>
+    mutate(
+      # fixing non 24 hour time input (if at/before 5am, change to pm)
+      hour = ifelse(hour == 0, NA, hour),
+      hour = ifelse(hour <= 5, hour + 12, hour),
+      minute = ifelse(hour == 0 & minute == 0, NA, minute)
     )
+
+  # return final dataframe for frost data
+  frost_data
 }

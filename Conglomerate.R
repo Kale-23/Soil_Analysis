@@ -38,15 +38,25 @@ files <- list.files(
   recursive = TRUE, # match to all files, not just in the current directory
   full.names = TRUE # give full path, not just from common_path
 )
-#TODO: remove this once I figure out 2017-2018 data
+# different formatting of files pre 2019, they are processed seperately below
+older_files <- files[str_detect(files, "2017-2018")]
 files <- files[!str_detect(files, "2017-2018")]
 
 #regex patterns to remove specific files, written this way to make it easier to add/ remove
+# 2019-present format
 patterns <- paste(
   c("~\\$", "DataSheets_Blank", "Combined", "Durham"),
   collapse = "|"
 )
 files <- files[!str_detect(files, patterns)]
+rm(patterns)
+# before 2019 format
+patterns <- paste(
+  c("Frost", "SnowPits"),
+  collapse = "|"
+)
+older_files <- older_files[!str_detect(older_files, "~\\$|Durham")]
+older_files <- older_files[str_detect(older_files, patterns)]
 rm(patterns)
 
 # separate frost/pits/other datasets for processing
@@ -60,15 +70,27 @@ rm(files, patterns)
 # Process Pits Dataset
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/pits.R"))
-pits_data <- process_pits(pits_files)
-rm(pits_files, process_pits)
+new_pits <- create_pits_new(pits_files)
+old_pits_files <- older_files[str_detect(older_files, "Pits")]
+old_pits <- create_pits_old(old_pits_files)
+pits_data <- bind_rows(new_pits, old_pits)
+pits_data <- process_pits(pits_data)
+rm(
+  pits_files,
+  old_pits_files,
+  create_pits_new,
+  create_pits_old,
+  process_pits,
+  old_pits,
+  new_pits
+)
 
 # --------------------------------
 # Process Frost Dataset
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/frost.R"))
 frost_data <- process_frost(frost_files)
-rm(process_frost)
+rm(frost_files, process_frost)
 
 # --------------------------------
 # Combine + Analyze Full Dataset
