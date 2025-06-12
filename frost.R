@@ -1,38 +1,19 @@
-process_frost <- function(frost_files) {
-  source("./lists.R")
+create_frost_new <- function(frost_files) {
+  source("./helpers.R", local = TRUE)
+
   # Data Aggregation
-  # for every file in pits_data, read it into a dataframe
-  frost_data <- map(
-    frost_files,
-    function(file) {
-      readxl::read_xlsx(
-        file,
-        range = cell_cols("A:L"),
-        #col_types = "text", # set all column types to strings, changed later in script
-        na = na_import_list
-      ) |>
-        dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
-        dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
-    }
-  )
-  rm(na_import_list)
+  frost_data <- excel_import_from_file_list(frost_files, range = "A:L")
 
   # current column names vs new names
-  rename_map <- c(
+  rename_map <- list(
     site_name = c("Site"),
     water_year = c("WaterYear"),
     date = c("Date"),
     time = c("Time"),
     frost_tube_id = c("FrostTubeID"),
     snow_depth_centimeters = c("SnowDepth(cm)"),
-    max_frost_depth_centimeters = c(
-      "MaxFrostDepth(cm)",
-      "MaxSoilFrostDepth(cm)"
-    ),
-    layers_present = c(
-      "LayersPresent?(y/n)",
-      "Layerspresent(y/n)"
-    ),
+    max_frost_depth_centimeters = c("MaxFrostDepth(cm)", "MaxSoilFrostDepth(cm)"),
+    layers_present = c("LayersPresent?(y/n)", "Layerspresent(y/n)"),
     thaw_depth_centimeters = c("ThawDepth(cm)"),
     shallow_frost_depth_centimeters = c("ShallowFrostDepth(cm)"),
     initials = c("Initials"),
@@ -43,10 +24,11 @@ process_frost <- function(frost_files) {
   frost_data <- map(frost_data, function(df) {
     for (new_col in names(rename_map)) {
       old_col <- rename_map[[new_col]]
-      # if multiple possible column names, this removes the subscripted number
-      new_col <- str_remove(new_col, "[0-9]")
-      if (old_col %in% names(df)) {
-        df <- df |> rename(!!new_col := !!sym(old_col))
+
+      # if mulptiple old names, only pull out the correct one
+      match_col <- intersect(names(df), old_col)
+      if (length(match_col) > 0) {
+        df <- df |> rename(!!new_col := !!sym(match_col[1]))
       }
     }
     df
@@ -199,4 +181,25 @@ process_frost <- function(frost_files) {
 
   # return final dataframe for frost data
   frost_data
+}
+
+create_frost_old <- function(old_frost_files) {
+  source("./helpers.R", local = TRUE)
+  # Data Aggregation
+  # for every file in pits_data, read it into a dataframe
+  frost_data <- map(
+    old_frost_files,
+    function(file) {
+      readxl::read_xlsx(
+        file,
+        #col_types = "text", # set all column types to strings, changed later in script
+        na = na_import_list
+      ) |>
+        dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
+        dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
+    }
+  )
+  rm(na_import_list)
+
+  frost_data <- reasign_names(frost_data)
 }

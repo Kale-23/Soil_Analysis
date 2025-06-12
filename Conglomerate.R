@@ -1,26 +1,25 @@
 # --------------------------------
 # loading in libraries
 # --------------------------------
-install_list <- function(list) {
-  for (i in list) {
-    if (suppressMessages(!require(i, character.only = TRUE))) {
-      install.packages(i)
-      library(i, character.only = TRUE)
-    }
-  }
-}
-c(
-  "lubridate",
-  "readxl",
-  "readr",
-  "dplyr",
-  "tidyr",
-  "purrr",
-  "stringr",
-  "ggplot2"
-) |>
-  install_list()
-rm(install_list)
+invisible(
+  c(
+    "lubridate",
+    "readxl",
+    "readr",
+    "dplyr",
+    "tidyr",
+    "purrr",
+    "stringr",
+    "ggplot2",
+    "rlang"
+  ) |>
+    lapply(function(x) {
+      if (suppressMessages(!require(x, character.only = TRUE))) {
+        install.packages(x)
+        library(x, character.only = TRUE)
+      }
+    })
+)
 
 # --------------------------------
 # setting paths and creating directories
@@ -63,17 +62,18 @@ rm(patterns)
 patterns <- paste(c("SnowPits", "Snow Pits", "SnowPit"), collapse = "|")
 pits_files <- files[str_detect(files, patterns)]
 frost_files <- files[str_detect(files, "SnowFrost")]
-other <- files[!files %in% union(frost_files, pits_files)]
-rm(files, patterns)
+old_pits_files <- older_files[str_detect(older_files, patterns)]
+old_frost_files <- older_files[str_detect(older_files, "Frost")]
+#other <- files[!files %in% union(frost_files, pits_files)]
+rm(files, older_files, patterns)
 
 # --------------------------------
 # Process Pits Dataset
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/pits.R"))
 new_pits <- create_pits_new(pits_files)
-old_pits_files <- older_files[str_detect(older_files, "Pits")]
 old_pits <- create_pits_old(old_pits_files)
-pits_data <- bind_rows(new_pits, old_pits)
+pits_data <- full_join(new_pits, old_pits) # this may be easier than bind_rows as that requires ordered rows
 pits_data <- process_pits(pits_data)
 rm(
   pits_files,
@@ -89,7 +89,11 @@ rm(
 # Process Frost Dataset
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/frost.R"))
-frost_data <- process_frost(frost_files)
+new_frost <- create_frost_new(frost_files)
+old_frost_files <- older_files[str_detect(older_files, "Frost")]
+old_frost <- create_frost_old(old_frost_files)
+frost_data <- full_join(new_first, old_frost)
+frost_data <- process_frost(frost_data)
 rm(frost_files, process_frost)
 
 # --------------------------------

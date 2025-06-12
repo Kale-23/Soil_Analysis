@@ -1,65 +1,10 @@
 create_pits_new <- function(pits_files) {
-  source("./lists.R")
+  source("./helpers.R", local = TRUE)
   # Data Aggregation
-  # for every file in pits_data, read it into a dataframe
-  pits_data <- map(
-    pits_files,
-    function(file) {
-      readxl::read_xlsx(
-        file,
-        #col_types = "text", # set all column types to strings, changed later in script
-        na = na_import_list
-      ) |>
-        dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
-        dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
-    }
-  )
-  rm(na_import_list)
+  pits_data <- excel_import_from_file_list(pits_files)
 
-  #Change column names to be friendlier
-  # (follow https://edirepository.org/resources/cleaning-data-and-quality-control)
-  rename_map <- c(
-    site_name = "Site",
-    water_year = "WaterYear",
-    date = "Date",
-    time = "Time",
-    cloud_cover = "CloudCover",
-    incoming_radiation_1 = "IncomingRadiation1",
-    incoming_radiation_2 = "IncomingRadiation2",
-    incoming_radiation_3 = "IncomingRadiation3",
-    outgoing_radiation_1 = "OutgoingRadiation1",
-    outgoing_radiation_2 = "OutgoingRadiation2",
-    outgoing_radiation_3 = "OutgoingRadiation3",
-    surface_temperature_fahrenheit = "SurfaceTemp(F)",
-    snow_depth_centimeters = "SnowDepth(cm)",
-    tube_tare_weight_pounds = "TubeTareWeight(lb)",
-    tube_and_snow_weight_pounds = "Tube+SnowWeight(lb)",
-    snowing = "Snowing?",
-    snowing_past_24_hours = "SnowinPast24Hours?",
-    melt = "Melt?", #TODO: melting?
-    grain_size_millimeters = "GrainSize(mm)",
-    initials = "Initials", #TODO: person who took measurements?
-    photo_taken = "Photo?", #TODO: are these stored anywhere?
-    snow_depth_inches = "SnowDepth(in)",
-    snow_weight_kilograms = "SnowWeight(kg)",
-    snow_density_kilograms_meters_cubed = "SnowDensity(kgm-3)",
-    snow_water_equivalent_millimeters = "SWE(mm)", #TODO: SWE means this right?
-    albedo = "Albedo",
-    notes = "Notes",
-    surface_temperature_celcius = "SurfaceTemp(C)"
-  )
-  # rename will error out if column name doesn't exist
-  # this checks to make sure column exists before rename
-  pits_data <- map(pits_data, function(df) {
-    for (new_col in names(rename_map)) {
-      old_col <- rename_map[[new_col]]
-      if (old_col %in% names(df)) {
-        df <- df |> rename(!!new_col := !!sym(old_col))
-      }
-    }
-    df
-  })
-  rm(rename_map)
+  # renames all columns of all dataframes (check helpers.R for name map)
+  pits_data <- map(pits_data, reasign_names)
 
   # this moves some categorical stuff from numerical data
   pits_data <- map(
@@ -110,25 +55,6 @@ create_pits_new <- function(pits_files) {
     df
   })
 
-  # testing to make sure no na values are introduced do to conversion between str and numeric
-  #map(
-  #  pits_data,
-  #  ~ mutate(
-  #    .x,
-  #    surface_temperature_fahrenheit = ifelse(
-  #      "surface_temperature_fahrenheit" %in% names(.x),
-  #      surface_temperature_fahrenheit,
-  #      NA
-  #    )
-  #  ),
-  #  select(surface_temperature_fahrenheit) |>
-  #    filter(is.na(
-  #      as.numeric(surface_temperature_fahrenheit) !=
-  #        is.na(surface_temperature_fahrenheit)
-  #    )) |>
-  #    select(surface_temperature_fahrenheit)
-  #)
-
   # combine into one dataframe
   pits_data <- reduce(pits_data, full_join)
 
@@ -137,56 +63,12 @@ create_pits_new <- function(pits_files) {
 }
 
 create_pits_old <- function(old_pits_files) {
-  # import global sorting lists
-  source("./lists.R")
-
-  # import excel data
-  pits_data <- map(
-    old_pits_files,
-    function(file) {
-      readxl::read_xlsx(
-        file,
-        na = na_import_list
-      ) |>
-        dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
-        dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
-    }
-  )
-  rm(na_import_list)
+  source("./helpers.R", local = TRUE)
+  # Data Aggregation
+  pits_data <- excel_import_from_file_list(old_pits_files)
 
   # rename columns to fit with newer format
-  rename_map <- c(
-    date = "Date",
-    time = "Time",
-    cloud_cover = "Cloud",
-    pits_tube_id = "Tube#",
-    snow_depth_centimeters = "Depth(cm)",
-    snow_depth_inches = "depth(in)",
-    tube_tare_weight_pounds = "Tare(lb)",
-    tube_and_snow_weight_pounds = "Weight(lb)",
-    snow_weight_kilograms = "SnowWeight(kg)",
-    snow_density_kilograms_meters_cubed = "SnowDensity(kg/m3)",
-    snow_water_equivalent_millimeters = "SWE(mm)", #TODO: SWE means this right?
-    scale_photo_taken = "PhotoofSnowScale(y/n)", #TODO: are these stored anywhere?
-    snowing = "Snowing(y/n)",
-    snowing_past_24_hours = "Snowlast24h(y/n)",
-    melt = "Melt(y/n)",
-    grain_size_millimeters = "Grainsize(mm)",
-    initials = "Initials",
-    notes = "Notes"
-  )
-  pits_data <- map(pits_data, function(df) {
-    for (new_col in names(rename_map)) {
-      old_col <- rename_map[[new_col]]
-      if (old_col %in% names(df)) {
-        df <- df |> rename(!!new_col := !!sym(old_col))
-      }
-    }
-    df
-  })
-  rm(rename_map)
-
-  # combine dataframes
+  pits_data <- map(pits_data, reasign_names)
 
   # make columns the same datatypes so we can join together
   pits_data <- map(
@@ -212,18 +94,9 @@ create_pits_old <- function(old_pits_files) {
     }
   )
 
-  # join dataframes together
+  # join dataframes together + use filename col to assign site
   pits_data <- reduce(pits_data, full_join)
-
-  pits_data <- pits_data |>
-    mutate(
-      # add site_name column to data
-      site_name = case_when(
-        str_detect(str_to_lower(source_file), "kingman") ~ "kingman",
-        str_detect(str_to_lower(source_file), "field") ~ "thompson field",
-        str_detect(str_to_lower(source_file), "canopy") ~ "thompson canopy",
-      ),
-    )
+  pits_data <- assign_site(pits_data)
 
   # return full dataframe
   pits_data
@@ -231,6 +104,7 @@ create_pits_old <- function(old_pits_files) {
 
 
 process_pits <- function(df) {
+  source("./helpers.R", local = TRUE)
   # remove rows where all data is missing
   orig_row_count <- nrow(pits_data)
   full_columns <- c("site_name", "water_year", "date", "source_file")
@@ -241,17 +115,7 @@ process_pits <- function(df) {
   rm(orig_row_count, full_columns)
 
   # some cells had carrage returns? this removes them
-  pits_data <- pits_data |>
-    mutate(across(
-      everything(),
-      ~ {
-        if (is.character(.)) {
-          str_replace_all(., "[\r\n]", "")
-        } else {
-          .
-        }
-      }
-    ))
+  pits_data <- remove_carriage_returns(pits_data)
 
   # change some str to factors + adjust date formating (dates are weird in excel)
   pits_data <- pits_data |>
@@ -296,7 +160,11 @@ process_pits <- function(df) {
       month = month(date),
       day = day(date),
       hour = hour(time),
-      minute = minute(time)
+      minute = minute(time),
+      hour = case_when(
+        hour <= 5 ~ hour + 12,
+        .default = hour
+      )
     ) |>
     select(!time)
 
