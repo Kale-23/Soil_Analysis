@@ -3,37 +3,7 @@ create_frost_new <- function(frost_files) {
 
   # Data Aggregation
   frost_data <- excel_import_from_file_list(frost_files, range = "A:L")
-
-  # current column names vs new names
-  rename_map <- list(
-    site_name = c("Site"),
-    water_year = c("WaterYear"),
-    date = c("Date"),
-    time = c("Time"),
-    frost_tube_id = c("FrostTubeID"),
-    snow_depth_centimeters = c("SnowDepth(cm)"),
-    max_frost_depth_centimeters = c("MaxFrostDepth(cm)", "MaxSoilFrostDepth(cm)"),
-    layers_present = c("LayersPresent?(y/n)", "Layerspresent(y/n)"),
-    thaw_depth_centimeters = c("ThawDepth(cm)"),
-    shallow_frost_depth_centimeters = c("ShallowFrostDepth(cm)"),
-    initials = c("Initials"),
-    notes = c("Notes")
-  )
-
-  # maps new names onto columns
-  frost_data <- map(frost_data, function(df) {
-    for (new_col in names(rename_map)) {
-      old_col <- rename_map[[new_col]]
-
-      # if mulptiple old names, only pull out the correct one
-      match_col <- intersect(names(df), old_col)
-      if (length(match_col) > 0) {
-        df <- df |> rename(!!new_col := !!sym(match_col[1]))
-      }
-    }
-    df
-  })
-  rm(rename_map)
+  frost_data <- map(frost_data, reasign_names)
 
   frost_data <- map(
     frost_data,
@@ -59,15 +29,7 @@ create_frost_new <- function(frost_files) {
           paste(max_frost_depth_centimeters, notes, sep = " "),
           notes
         ),
-        # making sure nothing other than "trace" exists
-        #testing = ifelse(
-        #  str_detect(max_frost_depth_centimeters, "^[:alpha:]+$"),
-        #  TRUE,
-        #  FALSE
-        #),
-
-        # this is the conversion to numeric
-        #TODO: will show warnigns but due to check above + below can be ignored for now
+        #TODO: will show warnigns, give user some way of knowing what was removed
         snow_depth_centimeters = as.numeric(ifelse(
           str_to_lower(snow_depth_centimeters) == "trace" |
             str_to_lower(snow_depth_centimeters) == "broken",
@@ -83,17 +45,6 @@ create_frost_new <- function(frost_files) {
         )),
       )
   )
-  ## making sure not to remove anything other than trace
-  #test = c()
-  #for (i in 1:13) {
-  #  testing <- frost_data[[i]] |>
-  #    filter(frost_data[[i]]$testing) |>
-  #    select(snow_depth_centimeters)
-  #  str(testing)
-  #  test <- append(test, as.list(testing$snow_depth_centimeters))
-  #}
-  #unique(test)
-  #rm(testing, test, i)
 
   frost_data <- map(
     frost_data,
@@ -116,9 +67,6 @@ create_frost_new <- function(frost_files) {
   )
   full_columns <- c("site_name", "water_year", "date", "source_file")
   orig_row_count <- nrow(frost_data)
-  #empty_frost_data <- frost_data |>
-  #  # these columns have data even if the rest dont, ignore these when filtering
-  #  filter(if_all(all_of(filter_columns), ~ is.na(.) | . == 0))
   frost_data <- frost_data |>
     # these columns have data even if the rest dont, ignore these when filtering
     filter(!if_all(all_of(filter_columns), ~ is.na(.) | . == 0))
@@ -126,17 +74,7 @@ create_frost_new <- function(frost_files) {
   rm(orig_row_count, full_columns, filter_columns)
 
   # remove carrage returns
-  frost_data <- frost_data |>
-    mutate(across(
-      everything(),
-      ~ {
-        if (is.character(.)) {
-          str_replace_all(., "[\r\n]", "")
-        } else {
-          .
-        }
-      }
-    ))
+  frost_data <- remove_carriage_returns(frost_data)
 
   frost_data <- frost_data |>
     mutate(
@@ -177,7 +115,8 @@ create_frost_new <- function(frost_files) {
       hour = ifelse(hour == 0, NA, hour),
       hour = ifelse(hour <= 5, hour + 12, hour),
       minute = ifelse(hour == 0 & minute == 0, NA, minute)
-    )
+    ) |>
+    select(-time)
 
   # return final dataframe for frost data
   frost_data
@@ -185,21 +124,57 @@ create_frost_new <- function(frost_files) {
 
 create_frost_old <- function(old_frost_files) {
   source("./helpers.R", local = TRUE)
-  # Data Aggregation
-  # for every file in pits_data, read it into a dataframe
-  frost_data <- map(
-    old_frost_files,
-    function(file) {
-      readxl::read_xlsx(
-        file,
-        #col_types = "text", # set all column types to strings, changed later in script
-        na = na_import_list
-      ) |>
-        dplyr::mutate(source_file = basename(file)) |> # add column for sorce file
-        dplyr::rename_all(~ str_replace_all(., "\\s+", "")) # removes all whitespace from column names
-    }
-  )
-  rm(na_import_list)
+  # import and assign correct names to columns
+  frost_data <- excel_import_from_file_list(old_frost_files)
+  frost_data <- map(frost_data, reasign_names)
 
-  frost_data <- reasign_names(frost_data)
+  # these only put in dates once for every 3 tube measurements, this corrects that
+  # this is done before combining to make sure order stays the same
+  frost_data <- map(frost_data, function(df) {
+    date <- NA
+    time <- NA
+    for (i in seq_len(nrow(df))) {
+      # modulo selects once every 3 lines to save for next 2 after
+      if (i %% 3 == 1) {
+        date <- df$date[i]
+        time <- df$time[i]
+      } else {
+        df$date[i] <- date
+        df$time[i] <- time
+      }
+    }
+    df
+  })
+  # this doesnt work as if a section is missing, the previous section will get filled in (ie 6 of same instead of 3)
+  #frost_data <- map(frost_data, ~ .x |> fill(date, time, .direction = "down"))
+
+  # add water year column
+  frost_data <- map(frost_data, add_water_year)
+
+  # combine to one dataframe
+  frost_data <- reduce(frost_data, full_join)
+
+  # manipulate dates to fit better
+  frost_data <- frost_data |>
+    mutate(
+      # dates
+      year = year(date),
+      month = month(date),
+      day = day(date),
+      hour = hour(time),
+      minute = minute(time)
+    ) |>
+    mutate(
+      # fixing non 24 hour time input
+      # (if at/before 5am, change to pm (no one is out sampling that early?))
+      hour = ifelse(hour == 0, NA, hour),
+      hour = ifelse(hour <= 5, hour + 12, hour),
+      minute = ifelse(hour == 0 & minute == 0, NA, minute)
+    ) |>
+    select(-time)
+
+  # return dataframe
+  frost_data
 }
+
+process_frost <- function(frost_data) {}

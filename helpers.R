@@ -59,9 +59,11 @@ rename_map <- list(
   frost_tube_id = c("FrostTubeID"),
   max_frost_depth_centimeters = c("MaxFrostDepth(cm)", "MaxSoilFrostDepth(cm)"),
   layers_present = c("LayersPresent?(y/n)", "Layerspresent(y/n)"),
-  thaw_depth_centimeters = c("ThawDepth(cm)"),
-  shallow_frost_depth_centimeters = c("ShallowFrostDepth(cm)")
-  # old frost specific (none, shares all with newer style)
+  thaw_depth_centimeters = c("ThawDepth(cm)", "ThawDepth1(cm)", "ThawDepth2(cm)"),
+  shallow_frost_depth_centimeters = c("ShallowFrostDepth(cm)"),
+  # old frost specific
+  frost_depth_1_centimeters = c("FrostDepth1(cm)"),
+  frost_depth_2_centimeters = c("FrostDepth2(cm)")
 )
 
 assign_site <- function(df) {
@@ -100,10 +102,9 @@ reasign_names <- function(df) {
   # takes a dataframe and map between old/new names for columns (see above in file)
   # returns dataframe with new column names
   for (new_col in names(rename_map)) {
-    old_col <- rename_map[[new_col]]
-
+    old_col_matches <- rename_map[[new_col]]
     # if mulptiple old names, only pull out the correct one
-    match_col <- intersect(names(df), old_col)
+    match_col <- intersect(names(df), old_col_matches)
     if (length(match_col) > 0) {
       df <- df |> rename(!!new_col := !!sym(match_col[1]))
     }
@@ -125,4 +126,10 @@ remove_carriage_returns <- function(df) {
         }
       }
     ))
+}
+
+add_water_year <- function(df) {
+  # add water_year column
+  all_water_year <- max(year(df$date))
+  df |> mutate(water_year = all_water_year)
 }

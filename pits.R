@@ -86,13 +86,7 @@ create_pits_old <- function(old_pits_files) {
   )
 
   # add water_year column
-  pits_data <- map(
-    pits_data,
-    function(df) {
-      all_water_year <- max(year(df$date))
-      df |> mutate(water_year = all_water_year)
-    }
-  )
+  pits_data <- map(pits_data, add_water_year)
 
   # join dataframes together + use filename col to assign site
   pits_data <- reduce(pits_data, full_join)
