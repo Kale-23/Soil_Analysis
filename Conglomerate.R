@@ -11,6 +11,7 @@ invisible(
     "purrr",
     "stringr",
     "ggplot2",
+    "cowplot",
     "rlang"
   ) |>
     lapply(function(x) {
@@ -90,12 +91,37 @@ rm(
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/frost.R"))
 new_frost <- create_frost_new(frost_files)
-old_frost_files <- older_files[str_detect(older_files, "Frost")]
 old_frost <- create_frost_old(old_frost_files)
-frost_data <- full_join(new_first, old_frost)
+frost_data <- full_join(new_frost, old_frost)
 frost_data <- process_frost(frost_data)
-rm(frost_files, process_frost)
+rm(
+  frost_files,
+  old_frost_files,
+  create_frost_new,
+  create_frost_old,
+  process_frost,
+  old_frost,
+  new_frost
+)
 
 # --------------------------------
 # Combine + Analyze Full Dataset
 # --------------------------------
+source(paste0(common_path, "Soil_Analysis/analysis_helper.R"))
+pits_explore <- full_explore(pits_data)
+ggsave(
+  filename = paste0(output, "pits_exploratory.png"),
+  plot = pits_explore,
+  width = 20,
+  height = 20
+)
+rm(pits_explore)
+
+frost_explore <- full_explore(frost_data)
+ggsave(
+  filename = paste0(output, "frost_exploratory.png"),
+  plot = frost_explore,
+  width = 20,
+  height = 20
+)
+rm(frost_explore)

@@ -46,6 +46,7 @@ create_frost_new <- function(frost_files) {
       )
   )
 
+  # make all tube ids into factors as there are both numbers and letters
   frost_data <- map(
     frost_data,
     ~ .x |>
@@ -76,6 +77,63 @@ create_frost_new <- function(frost_files) {
   # remove carrage returns
   frost_data <- remove_carriage_returns(frost_data)
 
+  # return final dataframe for frost data
+  frost_data
+}
+
+create_frost_old <- function(old_frost_files) {
+  source("./helpers.R", local = TRUE)
+  # import and assign correct names to columns
+  frost_data <- excel_import_from_file_list(old_frost_files)
+  frost_data <- map(frost_data, reasign_names)
+  frost_data <- map(frost_data, ~ .x |> rename("frost_tube_id" = "pits_tube_id"))
+
+  # these only put in dates once for every 3 tube measurements, this corrects that
+  # this is done before combining to make sure order stays the same
+  frost_data <- map(frost_data, function(df) {
+    date <- NA
+    time <- NA
+    initials <- NA
+    for (i in seq_len(nrow(df))) {
+      # modulo selects once every 3 lines to save for next 2 after
+      if (i %% 3 == 1) {
+        date <- df$date[i]
+        time <- df$time[i]
+        initials <- df$initials[i]
+      } else {
+        df$date[i] <- date
+        df$time[i] <- time
+        df$initials[i] <- initials
+      }
+    }
+    df
+  })
+  # this doesnt work as if a section is missing, the previous section will get filled in (ie 6 of same instead of 3)
+  #frost_data <- map(frost_data, ~ .x |> fill(date, time, .direction = "down"))
+
+  # make all tube ids into factors as there are both numbers and letters
+  frost_data <- map(
+    frost_data,
+    ~ .x |>
+      mutate(
+        frost_tube_id = as.factor(frost_tube_id),
+      )
+  )
+
+  # add water year column
+  frost_data <- map(frost_data, add_water_year)
+
+  # combine to one dataframe
+  frost_data <- reduce(frost_data, full_join)
+
+  # assign site column
+  frost_data <- assign_site(frost_data)
+
+  # return dataframe
+  frost_data
+}
+
+process_frost <- function(frost_data) {
   frost_data <- frost_data |>
     mutate(
       # change some formats to better reflect data (str to factor etc)
@@ -117,64 +175,4 @@ create_frost_new <- function(frost_files) {
       minute = ifelse(hour == 0 & minute == 0, NA, minute)
     ) |>
     select(-time)
-
-  # return final dataframe for frost data
-  frost_data
 }
-
-create_frost_old <- function(old_frost_files) {
-  source("./helpers.R", local = TRUE)
-  # import and assign correct names to columns
-  frost_data <- excel_import_from_file_list(old_frost_files)
-  frost_data <- map(frost_data, reasign_names)
-
-  # these only put in dates once for every 3 tube measurements, this corrects that
-  # this is done before combining to make sure order stays the same
-  frost_data <- map(frost_data, function(df) {
-    date <- NA
-    time <- NA
-    for (i in seq_len(nrow(df))) {
-      # modulo selects once every 3 lines to save for next 2 after
-      if (i %% 3 == 1) {
-        date <- df$date[i]
-        time <- df$time[i]
-      } else {
-        df$date[i] <- date
-        df$time[i] <- time
-      }
-    }
-    df
-  })
-  # this doesnt work as if a section is missing, the previous section will get filled in (ie 6 of same instead of 3)
-  #frost_data <- map(frost_data, ~ .x |> fill(date, time, .direction = "down"))
-
-  # add water year column
-  frost_data <- map(frost_data, add_water_year)
-
-  # combine to one dataframe
-  frost_data <- reduce(frost_data, full_join)
-
-  # manipulate dates to fit better
-  frost_data <- frost_data |>
-    mutate(
-      # dates
-      year = year(date),
-      month = month(date),
-      day = day(date),
-      hour = hour(time),
-      minute = minute(time)
-    ) |>
-    mutate(
-      # fixing non 24 hour time input
-      # (if at/before 5am, change to pm (no one is out sampling that early?))
-      hour = ifelse(hour == 0, NA, hour),
-      hour = ifelse(hour <= 5, hour + 12, hour),
-      minute = ifelse(hour == 0 & minute == 0, NA, minute)
-    ) |>
-    select(-time)
-
-  # return dataframe
-  frost_data
-}
-
-process_frost <- function(frost_data) {}
