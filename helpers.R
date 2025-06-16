@@ -28,7 +28,7 @@ rename_map <- list(
   date = c("Date"),
   time = c("Time"),
   initials = c("Initials"),
-  notes = c("Notes"),
+  notes = c("Notes", "Comments"),
   # pits specific
   cloud_cover = c("CloudCover", "Cloud"),
   incoming_radiation_1 = c("IncomingRadiation1"),
@@ -38,7 +38,7 @@ rename_map <- list(
   outgoing_radiation_2 = c("OutgoingRadiation2"),
   outgoing_radiation_3 = c("OutgoingRadiation3"),
   surface_temperature_fahrenheit = c("SurfaceTemp(F)"),
-  snow_depth_centimeters = c("SnowDepth(cm)", "Depth(cm)"),
+  snow_depth_centimeters = c("SnowDepth(cm)", "Depth(cm)", "SnowDepth_cm"),
   tube_tare_weight_pounds = c("TubeTareWeight(lb)", "Tare(lb)"),
   tube_and_snow_weight_pounds = c("Tube+SnowWeight(lb)", "Weight(lb)"),
   snowing = c("Snowing?", "Snowing(y/n)"),
@@ -48,13 +48,25 @@ rename_map <- list(
   photo_taken = c("Photo?"),
   snow_depth_inches = c("SnowDepth(in)", "depth(in)"),
   snow_weight_kilograms = c("SnowWeight(kg)"),
-  snow_density_kilograms_meters_cubed = c("SnowDensity(kgm-3)", "SnowDensity(kg/m3)"),
-  snow_water_equivalent_millimeters = c("SWE(mm)"),
-  albedo = c("Albedo"),
+  snow_density_kilograms_meters_cubed = c(
+    "SnowDensity(kgm-3)",
+    "SnowDensity(kg/m3)",
+    "SnowDensity_kgm3"
+  ),
+  snow_water_equivalent_millimeters = c("SWE(mm)", "SWE_mm"),
+  albedo = c("Albedo", "CMA6_Albedo"),
   surface_temperature_celcius = c("SurfaceTemp(C)"),
   # old pits specific
   pits_tube_id = c("Tube#"),
   scale_photo_taken = c("PhotoofSnowScale(y/n)"),
+  # oldest pits specific
+  surface_skin_temp_celcius = c("SurfaceSkinTemp(C)"),
+  layer_1_depth_centimeters = c("Layer1_Depth_cm"),
+  layer_1_density_kilograms_meters_cubed = c("Layer1_Density_kgm3"),
+  layer_2_depth_centimeters = c("Layer2_Depth_cm"),
+  layer_2_density_kilograms_meters_cubed = c("Layer2_Density_kgm3"),
+  layer_3_depth_centimeters = c("Layer3_Depth_cm"),
+  layer_3_density_kilograms_meters_cubed = c("Layer3_Density_kgm3"),
   # frost specific
   frost_tube_id = c("FrostTubeID"),
   max_frost_depth_centimeters = c("MaxFrostDepth(cm)", "MaxSoilFrostDepth(cm)"),
@@ -72,9 +84,9 @@ assign_site <- function(df) {
     mutate(
       # add site_name column to data
       site_name = dplyr::case_when(
-        stringr::str_detect(str_to_lower(source_file), "kingman") ~ "kingman",
-        stringr::str_detect(str_to_lower(source_file), "field") ~ "thompson field",
-        stringr::str_detect(str_to_lower(source_file), "canopy") ~ "thompson canopy",
+        stringr::str_detect(str_to_lower(source_file), "kingman") ~ "Kingman",
+        stringr::str_detect(str_to_lower(source_file), "field") ~ "Thompson Field",
+        stringr::str_detect(str_to_lower(source_file), "canopy") ~ "Thompson Canopy",
       ),
     )
 }

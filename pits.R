@@ -96,6 +96,37 @@ create_pits_old <- function(old_pits_files) {
   pits_data
 }
 
+create_pits_oldest <- function(oldest_files) {
+  source("./helpers.R", local = TRUE)
+  # Data Aggregation
+  pits_data <- excel_import_from_file_list(oldest_files)
+
+  # renames all columns of all dataframes (check helpers.R for name map)
+  pits_data <- map(pits_data, reasign_names)
+  pits_data <- map(
+    pits_data,
+    ~ {
+      start_col <- which(names(.x) == "notes")
+      combined_cols <- names(.x)[start_col:ncol(.x)]
+      combined_cols <- combined_cols[1:length(combined_cols) - 1]
+      print(combined_cols)
+
+      .x |>
+        unite(col = notes, all_of(combined_cols), sep = ", ", remove = TRUE) |>
+        mutate(
+          notes = str_remove_all(notes, "NA, "),
+          notes = if_else(notes == "NA", NA, notes)
+        )
+    }
+  )
+
+  # join dataframes together + use filename col to assign site
+  pits_data <- reduce(pits_data, full_join)
+  pits_data <- assign_site(pits_data)
+
+  pits_data
+}
+
 
 process_pits <- function(df) {
   source("./helpers.R", local = TRUE)

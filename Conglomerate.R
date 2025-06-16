@@ -32,53 +32,38 @@ dir.create(output, showWarnings = FALSE)
 # --------------------------------
 # Importing Datasets
 # --------------------------------
-files <- list.files(
-  path = paste0(common_path, "drive_data"), # directory to search
-  pattern = "*.xlsx", # regex pattern to search for (in this case all xlsx files)
-  recursive = TRUE, # match to all files, not just in the current directory
-  full.names = TRUE # give full path, not just from common_path
-)
-# different formatting of files pre 2019, they are processed seperately below
-older_files <- files[str_detect(files, "2017-2018")]
-files <- files[!str_detect(files, "2017-2018")]
+source(paste0(common_path, "Soil_Analysis/file_handler.R"))
 
-#regex patterns to remove specific files, written this way to make it easier to add/ remove
-# 2019-present format
-patterns <- paste(
-  c("~\\$", "DataSheets_Blank", "Combined", "Durham"),
-  collapse = "|"
-)
-files <- files[!str_detect(files, patterns)]
-rm(patterns)
-# before 2019 format
-patterns <- paste(
-  c("Frost", "SnowPits"),
-  collapse = "|"
-)
-older_files <- older_files[!str_detect(older_files, "~\\$|Durham")]
-older_files <- older_files[str_detect(older_files, patterns)]
-rm(patterns)
+# grabs list of excel files + separates old vs newer format
+all_files <- import_excel_files(paste0(common_path, "drive_data"))
+old_files <- unlist(all_files[1])
+new_files <- unlist(all_files[2])
+rm(all_files)
 
-# separate frost/pits/other datasets for processing
-patterns <- paste(c("SnowPits", "Snow Pits", "SnowPit"), collapse = "|")
-pits_files <- files[str_detect(files, patterns)]
-frost_files <- files[str_detect(files, "SnowFrost")]
-old_pits_files <- older_files[str_detect(older_files, patterns)]
-old_frost_files <- older_files[str_detect(older_files, "Frost")]
-#other <- files[!files %in% union(frost_files, pits_files)]
-rm(files, older_files, patterns)
+# separates pits and frost datasets in file lists
+all_old_files <- separate_datasets(old_files)
+old_pits <- unlist(all_old_files[1])
+old_frost <- unlist(all_old_files[2])
+all_new_files <- separate_datasets(new_files)
+new_pits <- unlist(all_new_files[1])
+new_frost <- unlist(all_new_files[2])
+rm(old_files, new_files, all_old_files, all_new_files)
+
+# handle oldest 2011-2022 format
+oldest_files <- oldest_files_handler(paste0(common_path, "other_data"))
+rm(import_excel_files, separate_datasets, oldest_files_handler)
 
 # --------------------------------
 # Process Pits Dataset
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/pits.R"))
-new_pits <- create_pits_new(pits_files)
-old_pits <- create_pits_old(old_pits_files)
-pits_data <- full_join(new_pits, old_pits) # this may be easier than bind_rows as that requires ordered rows
+new_pits <- create_pits_new(new_pits)
+old_pits <- create_pits_old(old_pits)
+oldest_pits <- create_pits_oldest(oldest_files)
+pits_data <- full_join(new_pits, old_pits)
+pits_data <- full_join(pits_data, oldest_pits) # this may be easier than bind_rows as that requires ordered rows
 pits_data <- process_pits(pits_data)
 rm(
-  pits_files,
-  old_pits_files,
   create_pits_new,
   create_pits_old,
   process_pits,
@@ -90,13 +75,11 @@ rm(
 # Process Frost Dataset
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/frost.R"))
-new_frost <- create_frost_new(frost_files)
-old_frost <- create_frost_old(old_frost_files)
+new_frost <- create_frost_new(new_frost)
+old_frost <- create_frost_old(old_frost)
 frost_data <- full_join(new_frost, old_frost)
 frost_data <- process_frost(frost_data)
 rm(
-  frost_files,
-  old_frost_files,
   create_frost_new,
   create_frost_old,
   process_frost,
@@ -108,20 +91,7 @@ rm(
 # Combine + Analyze Full Dataset
 # --------------------------------
 source(paste0(common_path, "Soil_Analysis/analysis_helper.R"))
-pits_explore <- full_explore(pits_data)
-ggsave(
-  filename = paste0(output, "pits_exploratory.png"),
-  plot = pits_explore,
-  width = 20,
-  height = 20
-)
-rm(pits_explore)
-
-frost_explore <- full_explore(frost_data)
-ggsave(
-  filename = paste0(output, "frost_exploratory.png"),
-  plot = frost_explore,
-  width = 20,
-  height = 20
-)
-rm(frost_explore)
+# exploratory factor/numeric data
+full_explore_output(pits_data, paste0(output, "pits_exploratory.png"))
+full_explore_output(frost_data, paste0(output, "frost_exploratory.png"))
+rm(missing_plot, factor_bar, numeric_hist, full_explore_output)
