@@ -1,3 +1,47 @@
+theme_custom <- function(
+  aesthetic = c("fill", "color", "none"),
+  grid = c("yes", "no")
+) {
+  aesthetic <- match.arg(aesthetic)
+  scale_layer <- switch(
+    aesthetic,
+    fill = scale_fill_paletteer_d("MetBrewer::Austria"),
+    color = scale_color_paletteer_d("MetBrewer::Austria"),
+    none = NULL
+  )
+  grid <- match.arg(grid)
+  grid <- switch(
+    grid,
+    yes = element_line(color = "gray80"),
+    no = element_blank()
+  )
+
+  list(
+    scale_layer,
+    theme_minimal(),
+    theme(
+      # global changes
+      text = element_text(family = "Work Sans", color = "black"),
+      #plot.background = element_rect(fill = "white", color = NA)
+      panel.grid.major = grid,
+      panel.grid.minor = element_blank(),
+      #panel.background = element_rect(fill = "white", color = NA),
+
+      # axis elements
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 10, color = "black"),
+      axis.ticks = element_line(color = "gray80"),
+      axis.ticks.length = unit(0.01, "cm"),
+
+      # legend elements
+      legend.position = "right",
+      legend.key.size = unit(0.35, "cm"),
+      legend.key.spacing = unit(0.2, "cm"),
+    )
+  )
+}
+
+
 numeric_hist <- function(df) {
   # takes all numeric columns of df and creates a histogram for each column
   df |>
@@ -42,6 +86,13 @@ missing_plot <- function(df) {
     labs(x = "Column", y = "Proportion of Total Columns", fill = "Is Missing") +
     scale_fill_manual(values = c("FALSE" = "green", "TRUE" = "red")) +
     theme(axis.text.x = element_text(size = 5, angle = 45, hjust = 1))
+}
+
+pairs_plots <- function(df) {
+  df |>
+    ggpairs(lower = list(continuous = wrap("points")), upper = "blank", diag = "blankDiag") +
+    theme_cowplot() +
+    theme_custom()
 }
 
 full_explore_output <- function(df, output_file) {

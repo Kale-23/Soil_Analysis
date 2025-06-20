@@ -12,7 +12,10 @@ invisible(
     "stringr",
     "ggplot2",
     "cowplot",
-    "rlang"
+    "forcats",
+    "rlang",
+    "GGally", #TODO: really only want ggpairs from this
+    "paletteer"
   ) |>
     lapply(function(x) {
       if (suppressMessages(!require(x, character.only = TRUE))) {
@@ -32,7 +35,7 @@ dir.create(output, showWarnings = FALSE)
 # --------------------------------
 # Importing Datasets
 # --------------------------------
-source(paste0(common_path, "Soil_Analysis/file_handler.R"))
+source("./file_handler.R")
 
 # grabs list of excel files + separates old vs newer format
 all_files <- import_excel_files(paste0(common_path, "drive_data"))
@@ -56,7 +59,7 @@ rm(import_excel_files, separate_datasets, oldest_files_handler)
 # --------------------------------
 # Process Pits Dataset
 # --------------------------------
-source(paste0(common_path, "Soil_Analysis/pits.R"))
+source("./pits.R")
 new_pits <- create_pits_new(new_pits)
 old_pits <- create_pits_old(old_pits)
 oldest_pits <- create_pits_oldest(oldest_files)
@@ -66,15 +69,18 @@ pits_data <- process_pits(pits_data)
 rm(
   create_pits_new,
   create_pits_old,
+  create_pits_oldest,
   process_pits,
+  oldest_pits,
   old_pits,
-  new_pits
+  new_pits,
+  oldest_files
 )
 
 # --------------------------------
 # Process Frost Dataset
 # --------------------------------
-source(paste0(common_path, "Soil_Analysis/frost.R"))
+source("./frost.R")
 new_frost <- create_frost_new(new_frost)
 old_frost <- create_frost_old(old_frost)
 frost_data <- full_join(new_frost, old_frost)
@@ -90,8 +96,34 @@ rm(
 # --------------------------------
 # Combine + Analyze Full Dataset
 # --------------------------------
-source(paste0(common_path, "Soil_Analysis/analysis_helper.R"))
+source("./analysis_helper.R")
 # exploratory factor/numeric data
+
 full_explore_output(pits_data, paste0(output, "pits_exploratory.png"))
 full_explore_output(frost_data, paste0(output, "frost_exploratory.png"))
 rm(missing_plot, factor_bar, numeric_hist, full_explore_output)
+
+write_csv(frost_data, file = paste0(output, "lightly_cleaned_frost_data.csv"))
+write_csv(pits_data, file = paste0(output, "lightly_cleaned_pits_data.csv"))
+
+
+# --------------------------------
+# Prepare Datasets for Upload
+# --------------------------------
+
+# subset data to what will be exported as well as remove calculated columns
+frost_data <- frost_data |>
+  select(-c(initials, notes, source_file))
+
+pits_data <- pits_data |>
+  select(
+    -c(
+      initials,
+      notes,
+      source_file,
+      photo_taken,
+      snow_density_kilograms_meters_cubed,
+      snow_water_equivalent_millimeters,
+      albedo
+    )
+  )

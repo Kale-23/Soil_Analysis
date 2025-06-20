@@ -105,17 +105,30 @@ create_pits_oldest <- function(oldest_files) {
   pits_data <- map(pits_data, reasign_names)
   pits_data <- map(
     pits_data,
-    ~ {
-      start_col <- which(names(.x) == "notes")
-      combined_cols <- names(.x)[start_col:ncol(.x)]
-      combined_cols <- combined_cols[1:length(combined_cols) - 1]
+    function(x) {
+      start_col <- which(names(x) == "notes")
+      if (start_col < ncol(x)) {
+        combined_cols <- names(x)[start_col:(ncol(x) - 1)]
+      } else {
+        combined_cols <- names(x)[start_col]
+      }
       print(combined_cols)
 
-      .x |>
+      x |>
         unite(col = notes, all_of(combined_cols), sep = ", ", remove = TRUE) |>
         mutate(
           notes = str_remove_all(notes, "NA, "),
-          notes = if_else(notes == "NA", NA, notes)
+          notes = if_else(notes == "NA", NA, notes),
+          snow_depth_trace = if_else(
+            str_detect(str_to_lower(snow_depth_centimeters), "trace"),
+            "N",
+            "Y"
+          ),
+          snow_depth_centimeters = as.numeric(if_else(
+            str_detect(str_to_lower(snow_depth_centimeters), "trace"),
+            NA,
+            snow_depth_centimeters
+          ))
         )
     }
   )

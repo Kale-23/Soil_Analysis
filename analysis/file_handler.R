@@ -59,6 +59,8 @@ oldest_files_handler <- function(path) {
     full.names = TRUE # give full path, not just from common_path
   )
   pattern <- paste(c("field", "canopy"), collapse = "|")
-  oldest_files[str_detect(oldest_files, pattern)]
+  oldest_files <- oldest_files[str_detect(oldest_files, pattern)]
   oldest_files <- oldest_files[!str_detect(oldest_files, "~\\$")]
+
+  oldest_files
 }

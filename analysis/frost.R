@@ -137,7 +137,7 @@ process_frost <- function(frost_data) {
   frost_data <- frost_data |>
     mutate(
       # change some formats to better reflect data (str to factor etc)
-      site_name = as.factor(site_name),
+      site_name = as.factor(str_to_lower(site_name)),
       layers_present = as.factor(layers_present),
       initials = as.factor(initials),
       source_file = as.factor(source_file),
