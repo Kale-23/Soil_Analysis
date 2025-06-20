@@ -2,28 +2,13 @@
 # Snow and Soil Frost Sampling App
 # --------------------------------
 
-# load in required libraries
-invisible(
-  c(
-    "shiny",
-    "bslib"
-  ) |>
-    lapply(function(x) {
-      if (suppressMessages(!require(x, character.only = TRUE))) {
-        install.packages(x)
-        library(x, character.only = TRUE)
-      }
-    })
-)
+setwd("~/Desktop/Soil_Work/Soil_Analysis/dashboard")
 
-# --------------------------------
-# Load in Datasets
-# --------------------------------
+source("global.R")
+source("data/import.R")
 
-# --------------------------------
-# Create Elements
-# --------------------------------
-
+source("modules/frost_module.R")
+source("modules/pits_module.R")
 # top bar info
 title_panel <- titlePanel(
   title = div(
@@ -47,36 +32,6 @@ global_controls <- card(
   )
 )
 
-# frost dataset
-frost <- layout_sidebar(
-  sidebar = accordion(
-    accordion_panel(
-      "Categories",
-    ),
-    accordion_panel(
-      "Numeric",
-    ),
-  ),
-  card(
-    card_header(
-      "DistPlot 1"
-    ),
-    plotOutput("distPlot")
-  )
-)
-
-pits <- layout_sidebar(
-  sidebar = sidebar(
-    title = "Pits"
-  ),
-  card(
-    card_header(
-      "DistPlot 2"
-    ),
-    plotOutput("distPlot2")
-  ),
-)
-
 # --------------------------------
 # UI Elements
 # --------------------------------
@@ -88,12 +43,12 @@ ui <- page_fluid(
     accordion_panel(
       "Frost Data",
       value = "frost",
-      frost,
+      frost_ui("frost_1")
     ),
     accordion_panel(
       "Pits Data",
       value = "pits",
-      pits,
+      pits_ui("pits_1")
     )
   )
 )
@@ -102,12 +57,18 @@ ui <- page_fluid(
 # Server
 # --------------------------------
 server <- function(input, output) {
-  output$distPlot <- renderPlot({
-    hist(rnorm(input$year))
-  })
-  output$distPlot2 <- renderPlot({
-    hist(rnorm(input$year))
-  })
+  frost_server(
+    "frost_1",
+    reactive({
+      rnorm(100)
+    })
+  )
+  frost_server(
+    "pits_1",
+    reactive({
+      rnorm(100)
+    })
+  )
 }
 
 # --------------------------------
