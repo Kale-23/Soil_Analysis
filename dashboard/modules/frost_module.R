@@ -1,29 +1,54 @@
-frost_ui <- function(id) {
+frost_ui <- function(id, df) {
+  source("R/generic_checkbox.R")
   ns <- NS(id)
   tagList(
     layout_sidebar(
       sidebar = accordion(
         accordion_panel(
-          "Categories",
+          "Numeric",
+          custom_checkbox(ns("frost_numeric"), df, "numeric")
         ),
         accordion_panel(
-          "Numeric",
+          "Categories",
+          custom_checkbox(ns("frost_factor"), df, "factor")
         ),
       ),
       card(
         card_header(
-          "DistPlot 1"
+          "frost 1"
         ),
-        plotOutput(ns("frostPlot"))
+        tableOutput(ns("frost_plot"))
       )
     )
   )
 }
 
-frost_server <- function(id, data) {
+frost_server <- function(id, data, global_inputs) {
   moduleServer(id, function(input, output, session) {
-    output$frostPlot <- renderPlot({
-      hist(data())
+    observe({
+      print(str(data()))
+      print(global_inputs()$year)
+      print(input$frost_numeric)
+    })
+
+    filtered_data <- reactive({
+      req(data(), global_inputs())
+      selected_cols <- c(input$frost_numeric, input$frost_factor)
+      req(length(selected_cols) > 0)
+      data() |>
+        dplyr::filter(
+          year %in% global_inputs()$year,
+          water_year %in% global_inputs()$water_year
+        ) |>
+        dplyr::select(
+          all_of(
+            selected_cols
+          )
+        )
+    })
+
+    output$frost_plot <- renderTable({
+      filtered_data()
     })
   })
 }

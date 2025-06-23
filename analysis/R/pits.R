@@ -1,5 +1,5 @@
 create_pits_new <- function(pits_files) {
-  source("./helpers.R", local = TRUE)
+  source("helpers.R", local = TRUE)
   # Data Aggregation
   pits_data <- excel_import_from_file_list(pits_files)
 
@@ -142,7 +142,7 @@ create_pits_oldest <- function(oldest_files) {
 
 
 process_pits <- function(df) {
-  source("./helpers.R", local = TRUE)
+  source("helpers.R", local = TRUE)
   # remove rows where all data is missing
   orig_row_count <- nrow(pits_data)
   full_columns <- c("site_name", "water_year", "date", "source_file")

@@ -1,5 +1,5 @@
 create_frost_new <- function(frost_files) {
-  source("./helpers.R", local = TRUE)
+  source("helpers.R", local = TRUE)
 
   # Data Aggregation
   frost_data <- excel_import_from_file_list(frost_files, range = "A:L")
@@ -82,7 +82,7 @@ create_frost_new <- function(frost_files) {
 }
 
 create_frost_old <- function(old_frost_files) {
-  source("./helpers.R", local = TRUE)
+  source("helpers.R", local = TRUE)
   # import and assign correct names to columns
   frost_data <- excel_import_from_file_list(old_frost_files)
   frost_data <- map(frost_data, reasign_names)

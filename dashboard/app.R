@@ -2,72 +2,77 @@
 # Snow and Soil Frost Sampling App
 # --------------------------------
 
+# --------------------------------
+# Importing Datasets and Helpers
+# --------------------------------
 setwd("~/Desktop/Soil_Work/Soil_Analysis/dashboard")
 
-source("global.R")
-source("data/import.R")
+# load in datasets created in analysis scripts
+frost_data_df <- readRDS("data/frost_data.RData")
+pits_data_df <- readRDS("data/pits_data.RData")
 
+# imports
+source("global.R")
+
+# simple ui elements (no servers needed)
+source("R/title_panel.R")
+source("R/footer.R")
+source("R/theme.R")
+
+# ui/server modules for specific datasets
+source("modules/global_module.R")
 source("modules/frost_module.R")
 source("modules/pits_module.R")
-# top bar info
-title_panel <- titlePanel(
-  title = div(
-    img(src = "snow.png", height = "30px", style = "margin-right: 10px;"),
-    "Snow and Frost Data Explorer"
-  ),
-  windowTitle = "Snow and Frost Data Explorer"
-)
-
-# global controls
-global_controls <- card(
-  card_header(
-    "Global",
-  ),
-  sliderInput(
-    "year",
-    "Water Year",
-    min = 2011,
-    max = 2025,
-    value = 2025,
-  )
-)
 
 # --------------------------------
 # UI Elements
 # --------------------------------
 ui <- page_fluid(
+  #theme = custom_theme,
+
   title_panel,
-  global_controls,
+  global_ui("global_1"),
   accordion(
     id = "main_sections",
     accordion_panel(
       "Frost Data",
       value = "frost",
-      frost_ui("frost_1")
+      frost_ui("frost_1", frost_data_df)
     ),
     accordion_panel(
       "Pits Data",
       value = "pits",
       pits_ui("pits_1")
     )
-  )
+  ),
+  footer,
 )
 
 # --------------------------------
 # Server
 # --------------------------------
 server <- function(input, output) {
+  # load in datasets
+  frost_data <- reactive({
+    frost_data_df
+  })
+  pits_data <- reactive({
+    pits_data_df
+  })
+
+  # global filters for use within datasets
+  global_inputs <- global_server("global_1")
+
+  # specific dataset servers
   frost_server(
     "frost_1",
-    reactive({
-      rnorm(100)
-    })
+    frost_data,
+    global_inputs
   )
-  frost_server(
+  pits_server(
     "pits_1",
-    reactive({
-      rnorm(100)
-    })
+    pits_data,
+    global_inputs
   )
 }
 
