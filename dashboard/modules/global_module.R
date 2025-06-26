@@ -1,8 +1,9 @@
 # global controls
-global_ui <- function(id) {
+global_ui <- function(id, total_height) {
   ns <- NS(id)
   navset_card_pill(
     placement = "above",
+    height = total_height,
     nav_panel(
       title = "Year",
       layout_columns(
@@ -36,6 +37,27 @@ global_ui <- function(id) {
           label = "Reset Filter"
         )
       )
+    ),
+    nav_panel(
+      title = "Site",
+      layout_columns(
+        col_widths = c(8, 4),
+        selectInput(
+          inputId = ns("site_name"),
+          label = "Site Name",
+          multiple = TRUE,
+          list(
+            "Kingman Farm" = "kingman",
+            "Thompson Farm Canopy" = "thompson canopy",
+            "Thompson Farm Field" = "thompson field"
+          ),
+          selected = c("kingman", "thompson canopy", "thompson field") # auto select these
+        ),
+        actionButton(
+          inputId = ns("site_name_reset"),
+          label = "Reset Filter"
+        )
+      )
     )
   )
 }
@@ -58,10 +80,19 @@ global_server <- function(id) {
       )
     })
 
+    observeEvent(input$site_name_reset, {
+      updateSelectInput(
+        session = session,
+        inputId = "site_name",
+        selected = c("kingman", "thompson canopy", "thompson field")
+      )
+    })
+
     reactive({
       list(
         year = seq(input$year[1], input$year[2]),
-        water_year = seq(input$water_year[1], input$water_year[2])
+        water_year = seq(input$water_year[1], input$water_year[2]),
+        site_name = input$site_name
       )
     })
   })

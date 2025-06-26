@@ -29,23 +29,34 @@ source("modules/pits_module.R")
 # --------------------------------
 ui <- page_fluid(
   #theme = custom_theme,
+  #theme = bs_theme(bootswatch = "morph"),
+  tags$style(HTML("html, body { height: 100%; margin: 0; }")),
+  div(
+    style = "
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    ",
 
-  title_panel,
-  global_ui("global_1"),
-  accordion(
-    id = "main_sections",
-    accordion_panel(
-      "Frost Data",
-      value = "frost",
-      frost_ui("frost_1", frost_data_df)
-    ),
-    accordion_panel(
-      "Pits Data",
-      value = "pits",
-      pits_ui("pits_1")
+    title_panel(total_height = "5vh"),
+
+    global_ui(id = "global_1", total_height = "20vh"),
+
+    navset_card_pill(
+      height = "75vh",
+      placement = "above",
+      nav_panel(
+        title = "Frost",
+        frost_ui("frost_1", frost_data_df)
+      ),
+      nav_panel(
+        title = "Pits",
+        pits_ui("pits_1", pits_data_df)
+      )
     )
-  ),
-  footer,
+  )
+
+  #footer,
 )
 
 # --------------------------------
