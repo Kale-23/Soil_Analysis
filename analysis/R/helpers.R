@@ -145,3 +145,38 @@ add_water_year <- function(df) {
   all_water_year <- max(year(df$date))
   df |> mutate(water_year = all_water_year)
 }
+
+find_removed_columns <- function(df_list, filter_expression, columns_to_check) {
+  # used to go over specific columns with a specific filter and pulls only the values
+  # in those columns that will be removed in the cleaned dataset
+  # this is to allow manual checking of removed values
+
+  # turn logical expression into a function
+  filter_fn <- rlang::as_function(filter_expression)
+  map(df_list, function(df) {
+    cols_present <- intersect(columns_to_check, colnames(df))
+    key_cols_present <- intersect(c("site_name", "water_year", "date", "time"), colnames(df))
+    df |>
+      mutate(across(
+        # this mutate uses the filter expression to only keep values that would be filtered out within the specified columns
+        .cols = all_of(cols_present),
+        .fns = ~ {
+          result <- filter_fn(.)
+          if_else(result, ., NA)
+        }
+      )) |>
+      mutate(across(
+        # this mutate turns everything not in the checked columns and key columns into NA (focus stays on removed values)
+        .cols = !c(all_of(cols_present), any_of(key_cols_present)),
+        .fns = ~NA
+      )) |>
+      filter(
+        # this filters out rows where no to be removed values are found, to keep the dfs small and easy to parse
+        !if_all(
+          .cols = -key_cols_present,
+          .fns = ~ is.na(.)
+        )
+      ) |>
+      mutate(across(.cols = everything(), .fns = ~ as.character(.)))
+  })
+}

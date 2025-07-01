@@ -3,19 +3,20 @@
 # --------------------------------
 invisible(
   c(
-    "lubridate",
-    "readxl",
-    "readr",
-    "dplyr",
+    "zeallot", # multi unpacker (I am lazy)
+    "lubridate", # makes date handling easier
+    "readxl", # excel import
+    "readr", # read in files other than excel
+    "dplyr", # data frame manipulation
     "tidyr",
-    "purrr",
-    "stringr",
-    "ggplot2",
-    "cowplot",
-    "forcats",
-    "rlang",
-    "GGally", #TODO: really only want ggpairs from this
-    "paletteer"
+    "purrr", # map/other functions for working with lists
+    "stringr", # working with strings
+    "ggplot2", # plotting
+    "cowplot", # meta plot formatting
+    "forcats", # working with factors
+    "rlang", # string/var interchange (!!sym() stuff)
+    "GGally", #TODO: really only want ggpairs from this (DO I?)
+    "paletteer" #TODO actually use this or dump it
   ) |>
     lapply(function(x) {
       if (suppressMessages(!require(x, character.only = TRUE))) {
@@ -40,19 +41,12 @@ dir.create(output, showWarnings = FALSE)
 source(paste0(scripts_path, "file_handler.R"))
 
 # grabs list of excel files + separates old vs newer format
-all_files <- import_excel_files(paste0(common_path, "drive_data"))
-old_files <- unlist(all_files[1])
-new_files <- unlist(all_files[2])
-rm(all_files)
+c(old_files, new_files) %<-% import_excel_files(paste0(common_path, "drive_data"))
 
 # separates pits and frost datasets in file lists
-all_old_files <- separate_datasets(old_files)
-old_pits <- unlist(all_old_files[1])
-old_frost <- unlist(all_old_files[2])
-all_new_files <- separate_datasets(new_files)
-new_pits <- unlist(all_new_files[1])
-new_frost <- unlist(all_new_files[2])
-rm(old_files, new_files, all_old_files, all_new_files)
+c(old_pits, old_frost) %<-% separate_datasets(old_files)
+c(new_pits, new_frost) %<-% separate_datasets(new_files)
+rm(old_files, new_files)
 
 # handle oldest 2011-2022 format
 oldest_files <- oldest_files_handler(paste0(common_path, "other_data"))
@@ -62,18 +56,13 @@ rm(import_excel_files, separate_datasets, oldest_files_handler)
 # Process Pits Dataset
 # --------------------------------
 source(paste0(scripts_path, "pits.R"))
-new_pits <- create_pits_new(new_pits)
-old_pits <- create_pits_old(old_pits)
-oldest_pits <- create_pits_oldest(oldest_files)
-pits_data <- full_join(new_pits, old_pits)
-pits_data <- full_join(pits_data, oldest_pits) # this may be easier than bind_rows as that requires ordered rows
-pits_data <- process_pits(pits_data)
+pits_data <- full_handle_pits(new_pits, old_pits, oldest_files)
+
 rm(
   create_pits_new,
   create_pits_old,
   create_pits_oldest,
   process_pits,
-  oldest_pits,
   old_pits,
   new_pits,
   oldest_files
@@ -83,10 +72,7 @@ rm(
 # Process Frost Dataset
 # --------------------------------
 source(paste0(scripts_path, "frost.R"))
-new_frost <- create_frost_new(new_frost)
-old_frost <- create_frost_old(old_frost)
-frost_data <- full_join(new_frost, old_frost)
-frost_data <- process_frost(frost_data)
+frost_data <- full_handle_frost(new_frost, old_frost)
 rm(
   create_frost_new,
   create_frost_old,

@@ -1,7 +1,11 @@
+# returns a dataframe of frost data as well as a dataframe of all removed data
+# returned df: properly formatted df for combination with other era frost data
+# returned removed_df: df of all rows removed due to one reason or another (see specifics below)
 create_frost_new <- function(frost_files) {
+  # import helper functions
   source("helpers.R", local = TRUE)
 
-  # Data Aggregation
+  # Data Aggregation (no removals)
   frost_data <- excel_import_from_file_list(frost_files, range = "A:L")
   frost_data <- map(frost_data, reasign_names)
 
@@ -175,4 +179,17 @@ process_frost <- function(frost_data) {
       minute = ifelse(hour == 0 & minute == 0, NA, minute)
     ) |>
     select(-time)
+}
+
+full_handle_frost <- function(new_frost, old_frost) {
+  # read in and process each era (new/older) of frost data seperately
+  #! most processing should be completed in "process_frost" step
+  new_frost_temp <- create_frost_new(new_frost)
+  old_frost_temp <- create_frost_old(old_frost)
+
+  # combine frost data into one dataframe
+  frost_data_temp <- full_join(new_frost_temp, old_frost_temp)
+
+  # process all frost data together
+  process_frost(frost_data_temp)
 }

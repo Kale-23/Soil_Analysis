@@ -1,65 +1,119 @@
+# returns a dataframe of pits data as well as a dataframe of all removed data
+# returned df: properly formatted df for combination with other era frost data
+# returned removed_df: df of all rows removed due to one reason or another (see specifics below)
 create_pits_new <- function(pits_files) {
+  # import helper functions
   source("helpers.R", local = TRUE)
-  # Data Aggregation
-  pits_data <- excel_import_from_file_list(pits_files)
 
-  # renames all columns of all dataframes (check helpers.R for name map)
+  # Data Aggregation (no removals)
+  pits_data <- excel_import_from_file_list(pits_files)
   pits_data <- map(pits_data, reasign_names)
 
+  # this will collect any data that would be removed by the following code
+  # ideally all dfs will be empty but this is reasurance
+  pits_data_removed <- find_removed_columns(
+    pits_data,
+    suppressWarnings(
+      ~ is.na(as.numeric(.)) & !is.na(.) & str_to_lower(.) != "trace"
+    ),
+    c(
+      "snow_depth_centimeters",
+      "tube_tare_weight_pounds",
+      "tube_and_snow_weight_pounds"
+    )
+  )
+
   # this moves some categorical stuff from numerical data
+  # will coerce to NA if character data other than "trace" is found.
+  # data will be collected by pits_data_removed for checking
   pits_data <- map(
     pits_data,
     ~ .x |>
       mutate(
         # "trace" in depth calcs to its own column
-        snow_depth_trace = ifelse(
+        snow_depth_trace = if_else(
           str_to_lower(snow_depth_centimeters) == "trace" |
             str_to_lower(tube_tare_weight_pounds) == "trace" |
             str_to_lower(tube_and_snow_weight_pounds) == "trace",
-          "Y",
-          "N"
+          "y",
+          "n"
         ),
-        snow_depth_centimeters = as.numeric(ifelse(
+        snow_depth_centimeters = as.numeric(if_else(
           str_to_lower(snow_depth_centimeters) == "trace",
           NA,
           snow_depth_centimeters
         )),
-        tube_tare_weight_pounds = as.numeric(ifelse(
+        tube_tare_weight_pounds = as.numeric(if_else(
           str_to_lower(tube_tare_weight_pounds) == "trace",
           NA,
           tube_tare_weight_pounds
         )),
-        tube_and_snow_weight_pounds = as.numeric(ifelse(
+        tube_and_snow_weight_pounds = as.numeric(if_else(
           str_to_lower(tube_and_snow_weight_pounds) == "trace",
           NA,
           tube_and_snow_weight_pounds
         ))
       )
   )
+
+  #! (determined to be unknown, AL data will be removed)
   # "AL" in surface temp
-  #TODO: na introduced, could handle better to make sure its just AL -> na
-  pits_data <- map(pits_data, function(df) {
-    if ("surface_temperature_fahrenheit" %in% names(df)) {
-      df <- df |>
-        mutate(
-          surface_temperature_AL = ifelse(
-            str_to_upper(surface_temperature_fahrenheit) == "AL",
-            "Y",
-            "N"
-          ),
-          surface_temperature_fahrenheit = as.numeric(
-            surface_temperature_fahrenheit
+  #pits_data <- map(pits_data, function(df) {
+  #  if ("surface_temperature_fahrenheit" %in% names(df)) {
+  #    df <- df |>
+  #      mutate(
+  #        surface_temperature_AL = if_else(
+  #          str_to_upper(surface_temperature_fahrenheit) == "AL",
+  #          "Y",
+  #          "N"
+  #        ),
+  #        surface_temperature_fahrenheit = as.numeric(if_else(
+  #          str_to_upper(surface_temperature_fahrenheit) == "AL",
+  #          NA,
+  #          surface_temperature_fahrenheit
+  #        ))
+  #      )
+  #  }
+  #  df
+  #})
+
+  # shows removed "AL" values in removed dfs
+  temp_removed <- find_removed_columns(
+    pits_data,
+    suppressWarnings(~ is.na(as.numeric(.)) & !is.na(.)),
+    c("surface_temperature_fahrenheit")
+  )
+  for (i in 1:length(pits_data_removed)) {
+    pits_data_removed[[i]] <- full_join(pits_data_removed[[i]], temp_removed[[i]])
+  }
+  rm(temp_removed)
+
+  # actually removes "AL" values
+  # done this way so that warnings dont show unless more than just "AL" exists
+  pits_data <- map(
+    pits_data,
+    function(df) {
+      if ("surface_temperature_fahrenheit" %in% names(df)) {
+        df |>
+          mutate(
+            surface_temperature_fahrenheit = as.numeric(if_else(
+              str_to_upper(surface_temperature_fahrenheit) == "AL",
+              NA,
+              surface_temperature_fahrenheit
+            ))
           )
-        )
+      } else {
+        df
+      }
     }
-    df
-  })
+  )
 
   # combine into one dataframe
   pits_data <- reduce(pits_data, full_join)
+  pits_data_removed <- reduce(pits_data_removed, full_join)
 
   # return dataframe
-  pits_data
+  list(pits_data, pits_data_removed)
 }
 
 create_pits_old <- function(old_pits_files) {
@@ -67,33 +121,60 @@ create_pits_old <- function(old_pits_files) {
   # Data Aggregation
   pits_data <- excel_import_from_file_list(old_pits_files)
 
-  # rename columns to fit with newer format
+  # rename columns to fit with newer format + add identifier columns
   pits_data <- map(pits_data, reasign_names)
+  pits_data <- map(pits_data, assign_site)
+  pits_data <- map(pits_data, add_water_year)
 
-  # make columns the same datatypes so we can join together
+  # remove mm/MM at end of grain_size
   pits_data <- map(
     pits_data,
     ~ .x |>
-      select(-contains("Layer")) |>
+      mutate(grain_size_millimeters = str_remove(grain_size_millimeters, "[mM]*$"))
+  )
+
+  # shows what values will be removed from dataset in grain_size due to not knowing exact mm (ie has "<")
+  pits_data_removed <- find_removed_columns(
+    pits_data,
+    ~ is.na(as.numeric(.)) & !is.na(.),
+    c("grain_size_millimeters")
+  )
+
+  # remove the "<" values in grain_size
+  pits_data <- map(
+    pits_data,
+    ~ .x |>
       mutate(
-        # remove "<{num}mm" annotation from number
-        #TODO: revisit and determine if "<1MM" should be 1 or NA or something else
-        grain_size_millimeters = as.numeric(str_extract(
-          grain_size_millimeters,
-          "\\d*\\.?\\d+"
+        grain_size_millimeters = as.numeric(if_else(
+          str_detect(grain_size_millimeters, "<"),
+          NA,
+          grain_size_millimeters
         ))
       )
   )
 
-  # add water_year column
-  pits_data <- map(pits_data, add_water_year)
+  #! removing the "<" values instead of extracting value
+  ## make columns the same datatypes so we can join together
+  #pits_data <- map(
+  #  pits_data,
+  #  ~ .x |>
+  #    select(-contains("Layer")) |>
+  #    mutate(
+  #      # remove "<{num}mm" annotation from number
+  #      #TODO: revisit and determine if "<1MM" should be 1 or NA or something else
+  #      grain_size_millimeters = as.numeric(str_extract(
+  #        grain_size_millimeters,
+  #        "\\d*\\.?\\d+"
+  #      ))
+  #    )
+  #)
 
-  # join dataframes together + use filename col to assign site
+  # join dataframes together
   pits_data <- reduce(pits_data, full_join)
-  pits_data <- assign_site(pits_data)
+  pits_data_removed <- reduce(pits_data_removed, full_join)
 
   # return full dataframe
-  pits_data
+  list(pits_data, pits_data_removed)
 }
 
 create_pits_oldest <- function(oldest_files) {
@@ -103,6 +184,8 @@ create_pits_oldest <- function(oldest_files) {
 
   # renames all columns of all dataframes (check helpers.R for name map)
   pits_data <- map(pits_data, reasign_names)
+
+  # the notes are spread across a couple columns, this combines those columns
   pits_data <- map(
     pits_data,
     function(x) {
@@ -118,30 +201,50 @@ create_pits_oldest <- function(oldest_files) {
         unite(col = notes, all_of(combined_cols), sep = ", ", remove = TRUE) |>
         mutate(
           notes = str_remove_all(notes, "NA, "),
-          notes = if_else(notes == "NA", NA, notes),
-          snow_depth_trace = if_else(
-            str_detect(str_to_lower(snow_depth_centimeters), "trace"),
-            "N",
-            "Y"
-          ),
-          snow_depth_centimeters = as.numeric(if_else(
-            str_detect(str_to_lower(snow_depth_centimeters), "trace"),
-            NA,
-            snow_depth_centimeters
-          ))
+          notes = if_else(notes == "NA", NA, notes)
         )
     }
   )
 
-  # join dataframes together + use filename col to assign site
-  pits_data <- reduce(pits_data, full_join)
-  pits_data <- assign_site(pits_data)
+  # give the site name column
+  pits_data <- map(pits_data, assign_site)
 
-  pits_data
+  # checks what is being removed below
+  pits_data_removed <- find_removed_columns(
+    pits_data,
+    suppressWarnings(
+      ~ is.na(as.numeric(.)) & !is.na(.) & str_to_lower(.) != "trace"
+    ),
+    c("snow_depth_centimeters")
+  )
+
+  # removes character cells from snow_depth_centimeters and puts "trace" annotation in its own column
+  pits_data <- map(
+    pits_data,
+    ~ .x |>
+      mutate(
+        snow_depth_trace = if_else(
+          str_to_lower(snow_depth_centimeters) == "trace",
+          "y",
+          "n"
+        ),
+        snow_depth_centimeters = as.numeric(if_else(
+          str_to_lower(snow_depth_centimeters) == "trace",
+          NA,
+          snow_depth_centimeters
+        ))
+      )
+  )
+
+  # join dataframes together
+  pits_data <- reduce(pits_data, full_join)
+  pits_data_removed <- reduce(pits_data_removed, full_join)
+
+  list(pits_data, pits_data_removed)
 }
 
 
-process_pits <- function(df) {
+process_pits <- function(pits_data) {
   source("helpers.R", local = TRUE)
   # remove rows where all data is missing
   orig_row_count <- nrow(pits_data)
@@ -214,4 +317,23 @@ process_pits <- function(df) {
 
   # return dataframe of all pits data
   pits_data
+}
+
+full_handle_pits <- function(new_pits, old_pits, oldest_files) {
+  # creates seperate pits dataframes from each era of data collection files (new/old/oldest)
+  # each era is slightly different so it was easier to do it this way than to make one function for all 3
+  c(new_pits_temp, new_pits_removed_temp) %<-% create_pits_new(new_pits)
+  c(old_pits_temp, old_pits_removed_temp) %<-% create_pits_old(old_pits)
+  c(oldest_pits_temp, oldest_pits_removed_temp) %<-% create_pits_oldest(oldest_files)
+
+  # combines all pits data together
+  #TODO bind rows may be more correct but this does not require columns to be the same/in the same order
+  pits_data_temp <- full_join(new_pits_temp, old_pits_temp)
+  pits_data_combined <- full_join(pits_data_temp, oldest_pits_temp)
+
+  pits_data_removed_temp <- full_join(new_pits_removed_temp, old_pits_removed_temp)
+  pits_data_removed_combined <- full_join(pits_data_removed_temp, oldest_pits_removed_temp)
+
+  # once combined, all pits data is processed and returned
+  process_pits(pits_data_combined)
 }
