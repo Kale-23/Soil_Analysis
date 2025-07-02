@@ -9,6 +9,7 @@ create_frost_new <- function(frost_files) {
   frost_data <- excel_import_from_file_list(frost_files, range = "A:L")
   frost_data <- map(frost_data, reasign_names)
 
+  # move any alpha data from numeric data into notes (this does not remove, just moves)
   frost_data <- map(
     frost_data,
     ~ .x |>
@@ -16,8 +17,8 @@ create_frost_new <- function(frost_files) {
         # "trace" in depth calcs to its own column (blocks numeric conversion)
         snow_depth_trace = ifelse(
           str_to_lower(snow_depth_centimeters) == "trace",
-          "Y",
-          "N"
+          "y",
+          "n"
         ),
         # any annotation other than "trace" belongs in notes and not numeric data
         notes = ifelse(
@@ -32,8 +33,35 @@ create_frost_new <- function(frost_files) {
             str_to_lower(max_frost_depth_centimeters) != "trace",
           paste(max_frost_depth_centimeters, notes, sep = " "),
           notes
-        ),
-        #TODO: will show warnigns, give user some way of knowing what was removed
+        )
+      )
+  )
+
+  # reports data removed/moved to notes
+  frost_data_removed <- find_removed_columns(
+    frost_data,
+    suppressWarnings(
+      ~ is.na(as.numeric(.)) &
+        !is.na(.) &
+        str_to_lower(.) != "trace"
+    ),
+    c(
+      "snow_depth_centimeters",
+      "max_frost_depth_centimeters"
+    )
+  )
+  frost_data_removed <- map(
+    frost_data_removed,
+    ~ .x |> mutate(across(everything(), ~ as.character(.x)))
+  )
+
+  # actually removes character data from within numeric columns
+  # done this way to reduce the warnings reported unless something other than
+  # what is being tested for is seen (will be able to tell in frost_data_removed)
+  frost_data <- map(
+    frost_data,
+    ~ .x |>
+      mutate(
         snow_depth_centimeters = as.numeric(ifelse(
           str_to_lower(snow_depth_centimeters) == "trace" |
             str_to_lower(snow_depth_centimeters) == "broken",
@@ -46,7 +74,7 @@ create_frost_new <- function(frost_files) {
             str_to_lower(max_frost_depth_centimeters) == "stuck",
           NA,
           max_frost_depth_centimeters
-        )),
+        ))
       )
   )
 
@@ -61,6 +89,9 @@ create_frost_new <- function(frost_files) {
 
   # combine into one dataframe
   frost_data <- reduce(frost_data, full_join)
+  frost_data_removed <- reduce(frost_data_removed, full_join)
+
+  # filter out empty rows
   filter_columns <- c(
     "snow_depth_centimeters",
     "max_frost_depth_centimeters",
@@ -70,19 +101,24 @@ create_frost_new <- function(frost_files) {
     "initials",
     "notes"
   )
-  full_columns <- c("site_name", "water_year", "date", "source_file")
-  orig_row_count <- nrow(frost_data)
+
+  # add empty rows to removed df
+  frost_data_removed <- frost_data |>
+    filter(if_all(all_of(filter_columns), ~ is.na(.) | . == 0)) |>
+    mutate(across(everything(), ~ as.character(.x))) |>
+    full_join(frost_data_removed)
+
+  # actually remove empty rows
   frost_data <- frost_data |>
     # these columns have data even if the rest dont, ignore these when filtering
     filter(!if_all(all_of(filter_columns), ~ is.na(.) | . == 0))
-  print(paste("filtered out ", orig_row_count - nrow(frost_data), " columns"))
-  rm(orig_row_count, full_columns, filter_columns)
+  rm(filter_columns)
 
   # remove carrage returns
   frost_data <- remove_carriage_returns(frost_data)
 
   # return final dataframe for frost data
-  frost_data
+  list(frost_data, frost_data_removed)
 }
 
 create_frost_old <- function(old_frost_files) {
@@ -133,11 +169,33 @@ create_frost_old <- function(old_frost_files) {
   # assign site column
   frost_data <- assign_site(frost_data)
 
+  # filter out empty rows
+  filter_columns <- c(
+    "frost_depth_1_centimeters",
+    "snow_depth_centimeters",
+    "thaw_depth_centimeters",
+    "frost_depth_2_centimeters",
+    "initials",
+    "notes"
+  )
+
+  # add empty rows to removed df
+  frost_data_removed <- frost_data |>
+    filter(if_all(all_of(filter_columns), ~ is.na(.) | . == 0)) |>
+    mutate(across(everything(), ~ as.character(.x)))
+
+  # actually remove empty rows
+  frost_data <- frost_data |>
+    # these columns have data even if the rest dont, ignore these when filtering
+    filter(!if_all(all_of(filter_columns), ~ is.na(.) | . == 0))
+  rm(filter_columns)
+
   # return dataframe
-  frost_data
+  list(frost_data, frost_data_removed)
 }
 
-process_frost <- function(frost_data) {
+process_frost <- function(frost_data, frost_data_removed) {
+  #TODO: finish this step and be done wiht better removed reporting
   frost_data <- frost_data |>
     mutate(
       # change some formats to better reflect data (str to factor etc)
@@ -184,12 +242,14 @@ process_frost <- function(frost_data) {
 full_handle_frost <- function(new_frost, old_frost) {
   # read in and process each era (new/older) of frost data seperately
   #! most processing should be completed in "process_frost" step
-  new_frost_temp <- create_frost_new(new_frost)
-  old_frost_temp <- create_frost_old(old_frost)
+  c(new_frost_temp, new_frost_removed_temp) %<-% create_frost_new(new_frost)
+  c(old_frost_temp, old_frost_removed_temp) %<-% create_frost_old(old_frost)
 
   # combine frost data into one dataframe
-  frost_data_temp <- full_join(new_frost_temp, old_frost_temp)
+  frost_data <- full_join(new_frost_temp, old_frost_temp)
+  frost_data_removed <- full_join(new_frost_removed_temp, old_frost_removed_temp)
+  rm(new_frost_temp, old_frost_temp, new_frost_removed_temp, old_frost_removed_temp)
 
   # process all frost data together
-  process_frost(frost_data_temp)
+  c(frost_data, frost_data_removed) %<-% process_frost(frost_data_temp, frost_data_removed)
 }

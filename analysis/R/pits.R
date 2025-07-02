@@ -244,18 +244,23 @@ create_pits_oldest <- function(oldest_files) {
 }
 
 
-process_pits <- function(pits_data) {
+process_pits <- function(pits_data, pits_data_removed) {
   source("helpers.R", local = TRUE)
   # remove rows where all data is missing
-  orig_row_count <- nrow(pits_data)
   full_columns <- c("site_name", "water_year", "date", "source_file")
-  pits_data <- pits_data |>
-    # these columns have data even if the rest dont, ignore these when filtering
-    filter(!if_all(-all_of(full_columns), ~ is.na(.) | . == 0))
-  print(paste("filtered out ", orig_row_count - nrow(pits_data), " columns"))
-  rm(orig_row_count, full_columns)
 
-  # some cells had carrage returns? this removes them
+  # add removed rows to removed df first
+  pits_data_removed <- pits_data |>
+    filter(if_all(-all_of(full_columns), ~ is.na(.) | . == 0)) |>
+    mutate(across(everything(), ~ as.character(.x))) |>
+    full_join(pits_data_removed)
+
+  # actually removing them now
+  pits_data <- pits_data |>
+    filter(!if_all(-all_of(full_columns), ~ is.na(.) | . == 0))
+  rm(full_columns)
+
+  # some cells had carrage returns? this removes them (does not remove rows)
   pits_data <- remove_carriage_returns(pits_data)
 
   # change some str to factors + adjust date formating (dates are weird in excel)
@@ -309,14 +314,8 @@ process_pits <- function(pits_data) {
     ) |>
     select(!time)
 
-  # compare to determine if NA are introduced between functions
-  #na_summary <- pits_data |>
-  #  summarise(across(everything(), ~ sum(is.na(.))))
-  #na_summary1 <- pits_data1 |>
-  #  summarise(across(everything(), ~ sum(is.na(.))))
-
   # return dataframe of all pits data
-  pits_data
+  list(pits_data, pits_data_removed)
 }
 
 full_handle_pits <- function(new_pits, old_pits, oldest_files) {
@@ -330,10 +329,15 @@ full_handle_pits <- function(new_pits, old_pits, oldest_files) {
   #TODO bind rows may be more correct but this does not require columns to be the same/in the same order
   pits_data_temp <- full_join(new_pits_temp, old_pits_temp)
   pits_data_combined <- full_join(pits_data_temp, oldest_pits_temp)
+  rm(new_pits_temp, old_pits_temp, oldest_pits_temp, pits_data_temp)
 
+  # combine removed data together for easier reporting
   pits_data_removed_temp <- full_join(new_pits_removed_temp, old_pits_removed_temp)
   pits_data_removed_combined <- full_join(pits_data_removed_temp, oldest_pits_removed_temp)
+  rm(new_pits_removed_temp, old_pits_removed_temp, oldest_pits_removed_temp, pits_data_removed_temp)
 
   # once combined, all pits data is processed and returned
-  process_pits(pits_data_combined)
+  c(pits_data, pits_data_removed) %<-% process_pits(pits_data_combined, pits_data_removed_combined)
+
+  list(pits_data, pits_data_removed)
 }

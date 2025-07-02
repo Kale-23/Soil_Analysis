@@ -56,7 +56,7 @@ rm(import_excel_files, separate_datasets, oldest_files_handler)
 # Process Pits Dataset
 # --------------------------------
 source(paste0(scripts_path, "pits.R"))
-pits_data <- full_handle_pits(new_pits, old_pits, oldest_files)
+c(pits_data, pits_data_removed) %<-% full_handle_pits(new_pits, old_pits, oldest_files)
 
 rm(
   create_pits_new,
@@ -73,6 +73,7 @@ rm(
 # --------------------------------
 source(paste0(scripts_path, "frost.R"))
 frost_data <- full_handle_frost(new_frost, old_frost)
+
 rm(
   create_frost_new,
   create_frost_old,
