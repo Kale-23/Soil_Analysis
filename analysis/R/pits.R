@@ -314,6 +314,15 @@ process_pits <- function(pits_data, pits_data_removed) {
     ) |>
     select(!time)
 
+  # reporting/removing impossible values (tared weight less than tare)
+  pits_data_removed <- pits_data |>
+    filter(tube_and_snow_weight_pounds < tube_tare_weight_pounds) |>
+    mutate(across(everything(), ~ as.character(.x))) |>
+    full_join(pits_data_removed)
+
+  pits_data <- pits_data |>
+    filter(tube_and_snow_weight_pounds >= tube_tare_weight_pounds)
+
   # return dataframe of all pits data
   list(pits_data, pits_data_removed)
 }

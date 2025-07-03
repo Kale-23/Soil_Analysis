@@ -106,32 +106,38 @@ write_csv(frost_data_removed, file = paste0(output, "frost_removed_data.csv"))
 
 # subset data to what will be exported as well as remove calculated columns
 source(paste0(scripts_path, "calculations.R"))
-frost_data <- frost_data |>
-  select(-c(initials, notes, source_file))
 
-pits_data <- pits_data |>
+frost_data_filtered <- frost_data |>
+  select(-c(initials, notes, source_file)) |> # get rid of unused columns
+  filter(frost_tube_id %in% c("1", "2", "3")) # only keep tubes with ids 1/2/3 (others are for other experiments)
+
+pits_data_filtered <- pits_data |>
   select(
     -c(
+      # unused columns below
       initials,
       notes,
       source_file,
       photo_taken,
       scale_photo_taken,
+      # recalculating below
       snow_density_kilograms_meters_cubed,
       snow_water_equivalent_millimeters,
       albedo
     )
   )
 
+pits_data_filtered <- pits_data_filtered
+
 #TODO: make sure data does not vary significantly between old/new calcs
-pits_data_1 <- pits_calculations(pits_data)
+pits_data_filtered <- pits_calculations(pits_data)
+temp <-
+  # --------------------------------
+  # Upload
+  # --------------------------------
 
-# --------------------------------
-# Upload
-# --------------------------------
-
-# send to dashboard
-dashboard_path <- paste0(common_path, "Soil_Analysis/dashboard/data/")
+  # send to dashboard
+  dashboard_path <- paste0(common_path, "Soil_Analysis/dashboard/data/")
 saveRDS(pits_data, paste0(dashboard_path, "pits_data.RData"))
 saveRDS(frost_data, paste0(dashboard_path, "frost_data.RData"))
 

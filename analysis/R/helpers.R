@@ -54,7 +54,9 @@ rename_map <- list(
     "SnowDensity_kgm3"
   ),
   snow_water_equivalent_millimeters = c("SWE(mm)", "SWE_mm"),
-  albedo = c("Albedo", "CMA6_Albedo"),
+  albedo = c("Albedo"),
+  cma6_albedo = c("CMA6_Albedo"),
+  cocorahs_albedo = c("CoCoRAHS_Albedo"),
   surface_temperature_celcius = c("SurfaceTemp(C)"),
   # old pits specific
   pits_tube_id = c("Tube#"),
