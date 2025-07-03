@@ -146,6 +146,7 @@ add_water_year <- function(df) {
   df |> mutate(water_year = all_water_year)
 }
 
+
 find_removed_columns <- function(df_list, filter_expression, columns_to_check) {
   # used to go over specific columns with a specific filter and pulls only the values
   # in those columns that will be removed in the cleaned dataset

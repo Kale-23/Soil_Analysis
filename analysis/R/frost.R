@@ -195,7 +195,7 @@ create_frost_old <- function(old_frost_files) {
 }
 
 process_frost <- function(frost_data, frost_data_removed) {
-  #TODO: finish this step and be done wiht better removed reporting
+  # first step changes data and recodes without removing
   frost_data <- frost_data |>
     mutate(
       # change some formats to better reflect data (str to factor etc)
@@ -219,16 +219,48 @@ process_frost <- function(frost_data, frost_data_removed) {
       ),
     ) |>
     mutate(
-      layers_present = na_if(layers_present, "0"),
-      initials = na_if(initials, "0")
-    ) |>
-    mutate(
       # dates
       year = year(date),
       month = month(date),
       day = day(date),
       hour = hour(time),
       minute = minute(time)
+    )
+
+  # add to be removed to removed df (make sure to convert everything to NA/character)
+  key_cols <- c("site_name", "water_year", "date", "time")
+  frost_data_removed <- frost_data |>
+    filter(layers_present == "0") |>
+    mutate(across(-all_of(c("layers_present", key_cols)), ~NA)) |>
+    mutate(across(everything(), as.character)) |>
+    full_join(frost_data_removed |> mutate(across(everything(), as.character)))
+
+  frost_data_removed <- frost_data |>
+    filter(initials == "0") |>
+    mutate(across(-all_of(c("initials", key_cols)), ~NA)) |>
+    mutate(across(everything(), as.character)) |>
+    full_join(frost_data_removed |> mutate(across(everything(), as.character)))
+
+  frost_data_removed <- frost_data |>
+    filter(hour == 0) |>
+    mutate(across(-all_of(c("hour", key_cols)), ~NA)) |>
+    mutate(across(everything(), as.character)) |>
+    full_join(frost_data_removed |> mutate(across(everything(), as.character)))
+
+  # this reports changes to the time (aka am to pm conversion for 12 to 24 hour time)
+  frost_data_removed <- frost_data |>
+    filter(hour <= 5) |>
+    mutate(hour = paste(hour, " -> ", hour + 12)) |>
+    mutate(across(-all_of(c("hour", key_cols)), ~NA)) |>
+    mutate(across(everything(), as.character)) |>
+    full_join(frost_data_removed)
+  rm(key_cols)
+
+  # remove and change data
+  frost_data <- frost_data |>
+    mutate(
+      layers_present = na_if(layers_present, "0"),
+      initials = na_if(initials, "0")
     ) |>
     mutate(
       # fixing non 24 hour time input (if at/before 5am, change to pm)
@@ -237,6 +269,8 @@ process_frost <- function(frost_data, frost_data_removed) {
       minute = ifelse(hour == 0 & minute == 0, NA, minute)
     ) |>
     select(-time)
+
+  list(frost_data, frost_data_removed)
 }
 
 full_handle_frost <- function(new_frost, old_frost) {
@@ -251,5 +285,6 @@ full_handle_frost <- function(new_frost, old_frost) {
   rm(new_frost_temp, old_frost_temp, new_frost_removed_temp, old_frost_removed_temp)
 
   # process all frost data together
-  c(frost_data, frost_data_removed) %<-% process_frost(frost_data_temp, frost_data_removed)
+  c(frost_data, frost_data_removed) %<-% process_frost(frost_data, frost_data_removed)
+  list(frost_data, frost_data_removed)
 }

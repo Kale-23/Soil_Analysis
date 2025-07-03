@@ -65,21 +65,23 @@ rm(
   process_pits,
   old_pits,
   new_pits,
-  oldest_files
+  oldest_files,
+  full_handle_pits
 )
 
 # --------------------------------
 # Process Frost Dataset
 # --------------------------------
 source(paste0(scripts_path, "frost.R"))
-frost_data <- full_handle_frost(new_frost, old_frost)
+c(frost_data, frost_data_removed) %<-% full_handle_frost(new_frost, old_frost)
 
 rm(
   create_frost_new,
   create_frost_old,
   process_frost,
   old_frost,
-  new_frost
+  new_frost,
+  full_handle_frost
 )
 
 # --------------------------------
@@ -90,12 +92,14 @@ source(paste0(scripts_path, "analysis_helper.R"))
 
 full_explore_output(pits_data, paste0(output, "pits_exploratory.png"))
 full_explore_output(frost_data, paste0(output, "frost_exploratory.png"))
-rm(missing_plot, factor_bar, numeric_hist, full_explore_output)
+rm(missing_plot, factor_bar, numeric_hist, full_explore_output, pairs_plots, theme_custom)
 
 write_csv(frost_data, file = paste0(output, "lightly_cleaned_frost_data.csv"))
 write_csv(pits_data, file = paste0(output, "lightly_cleaned_pits_data.csv"))
 
-rm(pairs_plots, theme_custom)
+write_csv(pits_data_removed, file = paste0(output, "pits_removed_data.csv"))
+write_csv(frost_data_removed, file = paste0(output, "frost_removed_data.csv"))
+
 # --------------------------------
 # Prepare Datasets for Upload
 # --------------------------------
