@@ -260,7 +260,7 @@ process_pits <- function(pits_data, pits_data_removed) {
     filter(!if_all(-all_of(full_columns), ~ is.na(.) | . == 0))
   rm(full_columns)
 
-  # some cells had carrage returns? this removes them (does not remove rows)
+  # some cells had windows style eol? this removes them (does not remove rows)
   pits_data <- remove_carriage_returns(pits_data)
 
   # change some str to factors + adjust date formating (dates are weird in excel)
@@ -274,6 +274,7 @@ process_pits <- function(pits_data, pits_data_removed) {
       melt = as.factor(str_to_lower(melt)),
       initials = as.factor(str_to_upper(initials)),
       photo_taken = as.factor(str_to_lower(photo_taken)),
+      pits_tube_id = as.factor(pits_tube_id)
     ) |>
     mutate(
       # factor recoding (ie n into no, y into yes)

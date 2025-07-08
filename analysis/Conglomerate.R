@@ -120,6 +120,21 @@ pits_data_filtered <- pits_data |>
       source_file,
       photo_taken,
       scale_photo_taken,
+      cma6_albedo,
+      cocorahs_albedo,
+      surface_skin_temp_celcius,
+      Layer1Depth,
+      Layer2Depth,
+      Layer3Depth,
+      LayerThickness,
+      Layer2thickness,
+      Layer3Thickness,
+      layer_1_depth_centimeters,
+      layer_2_depth_centimeters,
+      layer_3_depth_centimeters,
+      layer_1_density_kilograms_meters_cubed,
+      layer_2_density_kilograms_meters_cubed,
+      layer_3_density_kilograms_meters_cubed,
       # recalculating below
       snow_density_kilograms_meters_cubed,
       snow_water_equivalent_millimeters,
@@ -127,18 +142,22 @@ pits_data_filtered <- pits_data |>
     )
   )
 
-pits_data_filtered <- pits_data_filtered
-
 #TODO: make sure data does not vary significantly between old/new calcs
-pits_data_filtered <- pits_calculations(pits_data)
-temp <-
-  # --------------------------------
-  # Upload
-  # --------------------------------
+pits_data_filtered <- pits_calculations(pits_data_filtered)
 
-  # send to dashboard
-  dashboard_path <- paste0(common_path, "Soil_Analysis/dashboard/data/")
-saveRDS(pits_data, paste0(dashboard_path, "pits_data.RData"))
-saveRDS(frost_data, paste0(dashboard_path, "frost_data.RData"))
+# manual comparison between excel and R column calculations.
+# Outputs dfs showing different calculated values
+# Does not show difference in 0,NaN,NA outputs! (ie one is 0, one is NaN)
+#c(pits_diff, pits_recalc_diff) %<-%
+#  compare_calcs(pits_data, pits_data_filtered, "snow_water_equivalent_millimeters")
+
+# --------------------------------
+# Upload
+# --------------------------------
+
+# send to dashboard
+dashboard_path <- paste0(common_path, "Soil_Analysis/dashboard/data/")
+saveRDS(pits_data_filtered, paste0(dashboard_path, "pits_data.RData"))
+saveRDS(frost_data_filtered, paste0(dashboard_path, "frost_data.RData"))
 
 # save as csv for doi upload
