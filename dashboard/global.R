@@ -2,7 +2,8 @@ invisible(
   c(
     "shiny",
     "bslib",
-    "dplyr"
+    "dplyr",
+    "purrr"
   ) |>
     lapply(function(x) {
       if (suppressMessages(!require(x, character.only = TRUE))) {
