@@ -28,14 +28,11 @@ pits_calculations <- function(df) {
       # recalculate snow density
       #TODO: fix if trace changes stuff (0 depth will cause INF)
       snow_density_kilograms_meters_cubed = snow_weight_kilograms /
-        (pi * ((0.04653836 / 2)^2) * (snow_depth_centimeters * 0.01)),
-      #TODO two different dimensions of tubes?
-      #0.04653836
-      #0.046736
+        (pi * ((0.0465836 / 2)^2) * (snow_depth_centimeters * 0.01)),
       # recalculate SWE (if trace, assume 0.1cm depth)
       snow_water_equivalent_millimeters = if_else(
         snow_depth_trace == "y",
-        (0.1 * (snow_density_kilograms_meters_cubed / 100)),
+        NA,
         (snow_depth_centimeters * (snow_density_kilograms_meters_cubed / 100))
       ),
       # recalculate albedo

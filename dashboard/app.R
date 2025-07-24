@@ -6,23 +6,7 @@
 # Importing Datasets and Helpers
 # --------------------------------
 setwd("~/Desktop/Soil_Work/Soil_Analysis/dashboard")
-
-# load in datasets created in analysis scripts
-frost_data_df <- readRDS("data/frost_data.RData")
-pits_data_df <- readRDS("data/pits_data.RData")
-
-# imports
 source("global.R")
-
-# simple ui elements (no servers needed)
-source("R/title_panel.R")
-source("R/footer.R")
-source("R/theme.R")
-
-# ui/server modules for specific datasets
-source("modules/global_module.R")
-source("modules/frost_module.R")
-source("modules/pits_module.R")
 
 # --------------------------------
 # UI Elements

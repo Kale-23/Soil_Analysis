@@ -23,9 +23,7 @@ filter_var <- function(x, val) {
   #print(str(x))
   #print(names(x))
   #print(val)
-  if (names(x) %in% c("site_name", "water_year", "date")) {
-    TRUE
-  } else if (is.numeric(x)) {
+  if (is.numeric(x)) {
     !is.na(x) & x >= val[1] & x <= val[2]
   } else if (is.factor(x)) {
     x %in% val

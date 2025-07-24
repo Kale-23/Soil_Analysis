@@ -1,31 +1,6 @@
 # --------------------------------
 # loading in libraries
 # --------------------------------
-invisible(
-  c(
-    "zeallot", # multi unpacker (I am lazy)
-    "lubridate", # makes date handling easier
-    "readxl", # excel import
-    "readr", # read in files other than excel
-    "dplyr", # data frame manipulation
-    "tidyr",
-    "purrr", # map/other functions for working with lists
-    "stringr", # working with strings
-    "ggplot2", # plotting
-    "cowplot", # meta plot formatting
-    "forcats", # working with factors
-    "rlang", # string/var interchange (!!sym() stuff)
-    "GGally", #TODO: really only want ggpairs from this (DO I?)
-    "paletteer" #TODO actually use this or dump it
-  ) |>
-    lapply(function(x) {
-      if (suppressMessages(!require(x, character.only = TRUE))) {
-        install.packages(x)
-        library(x, character.only = TRUE)
-      }
-    })
-)
-
 # --------------------------------
 # setting paths and creating directories
 # --------------------------------
@@ -33,12 +8,17 @@ common_path <- "~/Desktop/Soil_Work/"
 output <- paste0(common_path, "cleaned_data/")
 scripts_path <- paste0(common_path, "Soil_Analysis/analysis/R/")
 setwd(scripts_path)
+
+# create output directory
 dir.create(output, showWarnings = FALSE)
+
+# import libraries
+source("globals.R")
 
 # --------------------------------
 # Importing Datasets
 # --------------------------------
-source(paste0(scripts_path, "file_handler.R"))
+source("file_handler.R")
 
 # grabs list of excel files + separates old vs newer format
 c(old_files, new_files) %<-% import_excel_files(paste0(common_path, "drive_data"))
@@ -55,7 +35,7 @@ rm(import_excel_files, separate_datasets, oldest_files_handler)
 # --------------------------------
 # Process Pits Dataset
 # --------------------------------
-source(paste0(scripts_path, "pits.R"))
+source("pits.R")
 c(pits_data, pits_data_removed) %<-% full_handle_pits(new_pits, old_pits, oldest_files)
 
 rm(
@@ -72,7 +52,7 @@ rm(
 # --------------------------------
 # Process Frost Dataset
 # --------------------------------
-source(paste0(scripts_path, "frost.R"))
+source("frost.R")
 c(frost_data, frost_data_removed) %<-% full_handle_frost(new_frost, old_frost)
 
 rm(
@@ -87,12 +67,12 @@ rm(
 # --------------------------------
 # Combine + Analyze Full Dataset
 # --------------------------------
-source(paste0(scripts_path, "analysis_helper.R"))
+source("analysis_helper.R")
 # exploratory factor/numeric data
 
 full_explore_output(pits_data, paste0(output, "pits_exploratory.png"))
 full_explore_output(frost_data, paste0(output, "frost_exploratory.png"))
-rm(missing_plot, factor_bar, numeric_hist, full_explore_output, pairs_plots, theme_custom)
+rm(missing_plot, factor_bar, numeric_hist, pairs_plots, full_explore_output, theme_custom)
 
 write_csv(frost_data, file = paste0(output, "lightly_cleaned_frost_data.csv"))
 write_csv(pits_data, file = paste0(output, "lightly_cleaned_pits_data.csv"))
@@ -105,7 +85,7 @@ write_csv(frost_data_removed, file = paste0(output, "frost_removed_data.csv"))
 # --------------------------------
 
 # subset data to what will be exported as well as remove calculated columns
-source(paste0(scripts_path, "calculations.R"))
+source("calculations.R")
 
 frost_data_filtered <- frost_data |>
   select(-c(initials, notes, source_file)) |> # get rid of unused columns
@@ -145,6 +125,11 @@ pits_data_filtered <- pits_data |>
 #TODO: make sure data does not vary significantly between old/new calcs
 pits_data_filtered <- pits_calculations(pits_data_filtered)
 
+source("analysis_helper.R")
+full_explore_output(pits_data_filtered, paste0(output, "pits_filtered_exploratory.png"))
+full_explore_output(frost_data_filtered, paste0(output, "frost_filtered_exploratory.png"))
+rm(missing_plot, factor_bar, numeric_hist, pairs_plots, full_explore_output, theme_custom)
+
 # manual comparison between excel and R column calculations.
 # Outputs dfs showing different calculated values
 # Does not show difference in 0,NaN,NA outputs! (ie one is 0, one is NaN)
@@ -156,8 +141,22 @@ pits_data_filtered <- pits_calculations(pits_data_filtered)
 # --------------------------------
 
 # send to dashboard
+
+# create and send data to sqlite server
+# will error if server already exists with same datasets
+#db_connection <- dbConnect(RSQLite::SQLite(), paste0(common_path, "snow_soil_DB.db"))
+#dbWriteTable(db_connection, "frost_data", frost_data_filtered)
+#dbWriteTable(db_connection, "pits_data", pits_data_filtered)
+## test server has data
+#dbListTables(db_connection)
+#dbGetQuery(db_connection, "SELECT snow_depth_centimeters FROM frost_data LIMIT 10")
+#dbGetQuery(db_connection, "SELECT albedo FROM pits_data LIMIT 10")
+
+# backup RData files
 dashboard_path <- paste0(common_path, "Soil_Analysis/dashboard/data/")
 saveRDS(pits_data_filtered, paste0(dashboard_path, "pits_data.RData"))
 saveRDS(frost_data_filtered, paste0(dashboard_path, "frost_data.RData"))
 
 # save as csv for doi upload
+write.csv(pits_data_filtered, paste0(output, "pits_final_data.csv"))
+write.csv(frost_data_filtered, paste0(output, "frost_final_data.csv"))

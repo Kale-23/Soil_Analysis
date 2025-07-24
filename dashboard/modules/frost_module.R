@@ -55,15 +55,16 @@ frost_server <- function(id, react_data, global_inputs) {
       req(react_data())
 
       # filtering based on dynamic ui input
-      filters <- map(
-        names(react_data()),
-        ~ {
-          input_value <- input[[.x]] # dynamic ui input
-          print(input_value)
-          print(react_data()[[.x]])
-          filter_var(react_data()[[.x]], input_value)
-        }
-      )
+      dyn_vals <- names(react_data())
+      exclude_vals <- c("site_name", "water_year", "date")
+
+      filters <- dyn_vals[!dyn_vals %in% exclude_vals] |>
+        map(
+          ~ {
+            input_min_max_filter <- input[[.x]] # dynamic ui input
+            filter_var(react_data()[[.x]], input_min_max_filter)
+          }
+        )
       #print(head(filters))
       reduce(filters, `&`) # if all values across a row are TRUE, will show that row
     })

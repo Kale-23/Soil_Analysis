@@ -15,6 +15,7 @@ na_import_list = c(
   "-999",
   "999",
   "-999.00",
+  "-999.0",
   "-9999.0",
   "-"
 )
@@ -168,6 +169,7 @@ find_removed_columns <- function(df_list, filter_expression, columns_to_check) {
           if_else(result, ., NA)
         }
       )) |>
+
       mutate(across(
         # this mutate turns everything not in the checked columns and key columns into NA (focus stays on removed values)
         .cols = !c(all_of(cols_present), any_of(key_cols_present)),
