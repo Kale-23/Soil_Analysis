@@ -120,7 +120,8 @@ pits_data_filtered <- pits_data |>
       snow_water_equivalent_millimeters,
       albedo
     )
-  )
+  ) |>
+  filter(!is.na(date))
 
 #TODO: make sure data does not vary significantly between old/new calcs
 pits_data_filtered <- pits_calculations(pits_data_filtered)
