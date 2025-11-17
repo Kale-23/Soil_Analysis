@@ -59,8 +59,9 @@ oldest_files_handler <- function(path) {
     full.names = TRUE # give full path, not just from common_path
   )
   pattern <- paste(c("field", "canopy"), collapse = "|")
-  oldest_files <- oldest_files[str_detect(oldest_files, pattern)]
-  oldest_files <- oldest_files[!str_detect(oldest_files, "~\\$")]
+  oldest_files <- oldest_files[str_detect(oldest_files, pattern)] # only keep field and canopy files
+  oldest_files <- oldest_files[!str_detect(oldest_files, "~\\$")] # remove microsoft temp files
+  oldest_files <- oldest_files[!str_detect(oldest_files, "repeat")] # remove repeat measurements (2017-2022)
 
   oldest_files
 }

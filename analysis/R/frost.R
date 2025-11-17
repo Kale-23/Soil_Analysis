@@ -225,7 +225,36 @@ process_frost <- function(frost_data, frost_data_removed) {
       day = day(date),
       hour = hour(time),
       minute = minute(time)
-    )
+    ) |>
+    mutate(
+      # frost_depth should always be negative
+      max_frost_depth_centimeters = if_else(
+        max_frost_depth_centimeters > 0,
+        max_frost_depth_centimeters * -1,
+        max_frost_depth_centimeters
+      ),
+      frost_depth_1_centimeters = if_else(
+        frost_depth_1_centimeters > 0,
+        frost_depth_1_centimeters * -1,
+        frost_depth_1_centimeters
+      ),
+      frost_depth_2_centimeters = if_else(
+        frost_depth_2_centimeters > 0,
+        frost_depth_2_centimeters * -1,
+        frost_depth_2_centimeters
+      ),
+      shallow_frost_depth_centimeters = if_else(
+        shallow_frost_depth_centimeters > 0,
+        shallow_frost_depth_centimeters * -1,
+        shallow_frost_depth_centimeters
+      )
+    ) |>
+    filter(!is.na(date) | !is.na(site_name)) # remove rows with no date or site
+
+  frost_data_removed <- frost_data |>
+    filter(is.na(date) | is.na(site_name)) |> # add rows with no date or site
+    mutate(across(everything(), as.character)) |>
+    full_join(frost_data_removed |> mutate(across(everything(), as.character)))
 
   # add to be removed to removed df (make sure to convert everything to NA/character)
   key_cols <- c("site_name", "water_year", "date", "time")

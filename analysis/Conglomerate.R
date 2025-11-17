@@ -141,7 +141,58 @@ rm(missing_plot, factor_bar, numeric_hist, pairs_plots, full_explore_output, the
 # Upload
 # --------------------------------
 
+# frost final upload format
+frost_data_final <- frost_data_filtered |>
+  mutate(
+    date_time = ymd_hm(paste(date, hour, minute), tz = "America/New_York"),
+    date_time_UTC = with_tz(date_time, tzone = "UTC")
+  ) |>
+  select(c(
+    site_name,
+    water_year,
+    date,
+    date_time_UTC,
+    frost_tube_id,
+    snow_depth_centimeters,
+    shallow_frost_depth_centimeters,
+    max_frost_depth_centimeters,
+    thaw_depth_centimeters
+  ))
+
+# pits final upload format
+pits_data_final <- pits_data_filtered |>
+  mutate(
+    date_time = ymd_hm(paste(date, hour, minute), tz = "America/New_York"),
+    date_time_UTC = with_tz(date_time, tzone = "UTC")
+  ) |>
+  select(c(
+    site_name,
+    water_year,
+    date,
+    date_time_UTC,
+    snow_depth_centimeters,
+    snow_density_kilograms_meters_cubed,
+    snow_water_equivalent_millimeters,
+    albedo
+  ))
 # send to dashboard
+
+# save as csv for doi upload
+write.csv(pits_data_final, paste0(output, "pits_final_data.csv"))
+write.csv(frost_data_final, paste0(output, "frost_final_data.csv"))
+
+# --------------------------------
+# Fix for Google Sheet Upload
+# --------------------------------
+
+source("google_sheet_export_format.R")
+
+frost_goog <- format_frost(frost_data)
+
+pits_goog <- format_pits(pits_data)
+
+google_output <- combine_datasets(frost_goog, pits_goog)
+write.csv(google_output, paste0(output, "google_upload.csv"))
 
 # create and send data to sqlite server
 # will error if server already exists with same datasets
@@ -154,10 +205,6 @@ rm(missing_plot, factor_bar, numeric_hist, pairs_plots, full_explore_output, the
 #dbGetQuery(db_connection, "SELECT albedo FROM pits_data LIMIT 10")
 
 # backup RData files
-dashboard_path <- paste0(common_path, "Soil_Analysis/dashboard/data/")
-saveRDS(pits_data_filtered, paste0(dashboard_path, "pits_data.RData"))
-saveRDS(frost_data_filtered, paste0(dashboard_path, "frost_data.RData"))
-
-# save as csv for doi upload
-write.csv(pits_data_filtered, paste0(output, "pits_final_data.csv"))
-write.csv(frost_data_filtered, paste0(output, "frost_final_data.csv"))
+#dashboard_path <- paste0(common_path, "Soil_Analysis/dashboard/data/")
+#saveRDS(pits_data_filtered, paste0(dashboard_path, "pits_data.RData"))
+#saveRDS(frost_data_filtered, paste0(dashboard_path, "frost_data.RData"))

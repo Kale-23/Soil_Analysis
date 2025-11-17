@@ -6,7 +6,7 @@ invisible(
     "readr", # read in files other than excel
     "dplyr", # data frame manipulation
     "tidyr",
-    "purrr", # map/other functions for working with lists
+    "purrr", # functional programming helpers
     "stringr", # working with strings
     "ggplot2", # plotting
     "cowplot", # meta plot formatting
